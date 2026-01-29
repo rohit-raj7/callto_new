@@ -1,0 +1,376 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Storage service for persisting data locally
+class StorageService {
+  static final StorageService _instance = StorageService._internal();
+  factory StorageService() => _instance;
+  StorageService._internal();
+
+  static const String _tokenKey = 'auth_token';
+  static const String _userIdKey = 'user_id';
+  static const String _userDataKey = 'user_data';
+  static const String _isListenerKey = 'is_listener';
+  static const String _genderKey = 'gender';
+  static const String _displayNameKey = 'display_name';
+  static const String _cityKey = 'city';
+  static const String _avatarUrlKey = 'avatar_url';
+  static const String _languageKey = 'language';
+  static const String _formDataKey = 'form_data';
+  static const String _dobKey = 'dob';
+  static const String _mobileKey = 'mobile';
+    /// Save date of birth
+    Future<void> saveDob(String dob) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_dobKey, dob);
+    }
+
+    /// Get date of birth
+    Future<String?> getDob() async {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_dobKey);
+    }
+
+    /// Save mobile number
+    Future<void> saveMobile(String mobile) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_mobileKey, mobile);
+    }
+
+    /// Get mobile number
+    Future<String?> getMobile() async {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_mobileKey);
+    }
+  
+  // Listener-specific keys
+  static const String _listenerProfessionalNameKey = 'listener_professional_name';
+  static const String _listenerOriginalNameKey = 'listener_original_name';
+  static const String _listenerAgeKey = 'listener_age';
+  static const String _listenerCityKey = 'listener_city';
+  static const String _listenerAvatarUrlKey = 'listener_avatar_url';
+  static const String _listenerLanguageKey = 'listener_language';
+  static const String _listenerExperiencesKey = 'listener_experiences';
+  static const String _listenerRatePerMinuteKey = 'listener_rate_per_minute';
+  static const String _listenerVoiceVerifiedKey = 'listener_voice_verified';
+  static const String _listenerSpecialtiesKey = 'listener_specialties';
+
+  /// Save authentication token
+  Future<void> saveToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, token);
+  }
+
+  /// Get authentication token
+  Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_tokenKey);
+  }
+
+  /// Clear authentication token
+  Future<void> clearToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+  }
+
+  /// Save user ID
+  Future<void> saveUserId(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userIdKey, id);
+  }
+
+  /// Get user ID
+  Future<String?> getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_userIdKey);
+  }
+
+  /// Save user data as JSON string
+  Future<void> saveUserData(String userData) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userDataKey, userData);
+  }
+
+  /// Get user data
+  Future<String?> getUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_userDataKey);
+  }
+
+  /// Save listener status
+  Future<void> saveIsListener(bool isListener) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_isListenerKey, isListener);
+  }
+
+  /// Get listener status
+  Future<bool> getIsListener() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_isListenerKey) ?? false;
+  }
+
+  /// Save gender
+  Future<void> saveGender(String gender) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_genderKey, gender);
+  }
+
+  /// Get gender
+  Future<String?> getGender() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_genderKey);
+  }
+
+  /// Check if user is logged in
+  Future<bool> isLoggedIn() async {
+    final token = await getToken();
+    return token != null && token.isNotEmpty;
+  }
+
+  /// Clear all stored data (logout)
+  Future<void> clearAll() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_userIdKey);
+    await prefs.remove(_userDataKey);
+    await prefs.remove(_isListenerKey);
+    await prefs.remove(_genderKey);
+    await prefs.remove(_displayNameKey);
+    await prefs.remove(_cityKey);
+    await prefs.remove(_avatarUrlKey);
+    await prefs.remove(_languageKey);
+    await prefs.remove(_formDataKey);
+  }
+
+  /// Save display name
+  Future<void> saveDisplayName(String displayName) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_displayNameKey, displayName);
+  }
+
+  /// Get display name
+  Future<String?> getDisplayName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_displayNameKey);
+  }
+
+  /// Save city
+  Future<void> saveCity(String city) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_cityKey, city);
+  }
+
+  /// Get city
+  Future<String?> getCity() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_cityKey);
+  }
+
+  /// Save avatar URL
+  Future<void> saveAvatarUrl(String avatarUrl) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_avatarUrlKey, avatarUrl);
+  }
+
+  /// Get avatar URL
+  Future<String?> getAvatarUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_avatarUrlKey);
+  }
+
+  /// Save language
+  Future<void> saveLanguage(String language) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_languageKey, language);
+  }
+
+  /// Get language
+  Future<String?> getLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_languageKey);
+  }
+
+  /// Get all user form data as map
+  Future<Map<String, String?>> getUserFormData() async {
+    return {
+      'gender': await getGender(),
+      'displayName': await getDisplayName(),
+      'city': await getCity(),
+      'avatarUrl': await getAvatarUrl(),
+      'language': await getLanguage(),
+      'dob': await getDob(),
+      'mobile': await getMobile(),
+    };
+  }
+
+  // ============ LISTENER FORM DATA METHODS ============
+
+  /// Save listener professional name (display name)
+  Future<void> saveListenerProfessionalName(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_listenerProfessionalNameKey, name);
+  }
+
+  /// Get listener professional name
+  Future<String?> getListenerProfessionalName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_listenerProfessionalNameKey);
+  }
+
+  /// Save listener original name
+  Future<void> saveListenerOriginalName(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_listenerOriginalNameKey, name);
+  }
+
+  /// Get listener original name
+  Future<String?> getListenerOriginalName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_listenerOriginalNameKey);
+  }
+
+  /// Save listener age
+  Future<void> saveListenerAge(int age) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_listenerAgeKey, age);
+  }
+
+  /// Get listener age
+  Future<int?> getListenerAge() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_listenerAgeKey);
+  }
+
+  /// Save listener city
+  Future<void> saveListenerCity(String city) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_listenerCityKey, city);
+  }
+
+  /// Get listener city
+  Future<String?> getListenerCity() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_listenerCityKey);
+  }
+
+  /// Save listener avatar URL
+  Future<void> saveListenerAvatarUrl(String avatarUrl) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_listenerAvatarUrlKey, avatarUrl);
+  }
+
+  /// Get listener avatar URL
+  Future<String?> getListenerAvatarUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_listenerAvatarUrlKey);
+  }
+
+  /// Save listener language
+  Future<void> saveListenerLanguage(String language) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_listenerLanguageKey, language);
+  }
+
+  /// Get listener language
+  Future<String?> getListenerLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_listenerLanguageKey);
+  }
+
+  /// Save listener single experience (primary concern)
+  Future<void> saveListenerExperience(String experience) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_listenerExperiencesKey, experience);
+  }
+
+  /// Get listener single experience
+  Future<String> getListenerExperience() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_listenerExperiencesKey) ?? '';
+  }
+
+  /// Backward compatibility: Save experiences list (deprecated, kept for compatibility)
+  @Deprecated('Use saveListenerExperience instead')
+  Future<void> saveListenerExperiences(List<String> experiences) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (experiences.isNotEmpty) {
+      // Save as single string - just the first one or join them
+      await prefs.setString(_listenerExperiencesKey, experiences.first);
+    } else {
+      await prefs.setString(_listenerExperiencesKey, '');
+    }
+  }
+
+  /// Backward compatibility: Get experiences list
+  @Deprecated('Use getListenerExperience instead')
+  Future<List<String>> getListenerExperiences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final exp = prefs.getString(_listenerExperiencesKey) ?? '';
+    return exp.isNotEmpty ? [exp] : [];
+  }
+
+  /// Save listener rate per minute
+  Future<void> saveListenerRatePerMinute(double rate) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_listenerRatePerMinuteKey, rate);
+  }
+
+  /// Get listener rate per minute
+  Future<double> getListenerRatePerMinute() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_listenerRatePerMinuteKey) ?? 1.0;
+  }
+
+  /// Save listener voice verification status
+  Future<void> saveListenerVoiceVerified(bool verified) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_listenerVoiceVerifiedKey, verified);
+  }
+
+  /// Get listener voice verification status
+  Future<bool> getListenerVoiceVerified() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_listenerVoiceVerifiedKey) ?? false;
+  }
+
+  /// Save listener specialties
+  Future<void> saveListenerSpecialties(List<String> specialties) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_listenerSpecialtiesKey, specialties);
+  }
+
+  /// Get listener specialties
+  Future<List<String>> getListenerSpecialties() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_listenerSpecialtiesKey) ?? [];
+  }
+
+  /// Get all listener form data as map
+  Future<Map<String, dynamic>> getListenerFormData() async {
+    return {
+      'professionalName': await getListenerProfessionalName(),
+      'originalName': await getListenerOriginalName(),
+      'age': await getListenerAge(),
+      'city': await getListenerCity(),
+      'avatarUrl': await getListenerAvatarUrl(),
+      'language': await getListenerLanguage(),
+      'experience': await getListenerExperience(), // Single experience string
+      'ratePerMinute': await getListenerRatePerMinute(),
+      'voiceVerified': await getListenerVoiceVerified(),
+      'specialties': await getListenerSpecialties(),
+    };
+  }
+
+  /// Clear all listener form data
+  Future<void> clearListenerFormData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_listenerProfessionalNameKey);
+    await prefs.remove(_listenerOriginalNameKey);
+    await prefs.remove(_listenerAgeKey);
+    await prefs.remove(_listenerCityKey);
+    await prefs.remove(_listenerAvatarUrlKey);
+    await prefs.remove(_listenerLanguageKey);
+    await prefs.remove(_listenerExperiencesKey);
+    await prefs.remove(_listenerRatePerMinuteKey);
+    await prefs.remove(_listenerVoiceVerifiedKey);
+    await prefs.remove(_listenerSpecialtiesKey);
+  }}

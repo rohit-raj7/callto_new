@@ -1,0 +1,197 @@
+import express from 'express';
+const router = express.Router();
+import { Chat, Message } from '../models/Chat.js';
+import { authenticate } from '../middleware/auth.js';
+
+// GET /api/chats
+// Get all chats for current user
+router.get('/', authenticate, async (req, res) => {
+  try {
+    const chats = await Chat.getUserChats(req.userId);
+
+    res.json({
+      chats,
+      count: chats.length
+    });
+  } catch (error) {
+    console.error('Get chats error:', error);
+    res.status(500).json({ error: 'Failed to fetch chats' });
+  }
+});
+
+// POST /api/chats
+// Create or get chat with another user
+router.post('/', authenticate, async (req, res) => {
+  try {
+    const { other_user_id } = req.body;
+
+    if (!other_user_id) {
+      return res.status(400).json({ error: 'other_user_id is required' });
+    }
+
+    if (other_user_id === req.userId) {
+      return res.status(400).json({ error: 'Cannot chat with yourself' });
+    }
+
+    const chat = await Chat.findOrCreate(req.userId, other_user_id);
+
+    res.json({
+      message: 'Chat ready',
+      chat
+    });
+  } catch (error) {
+    console.error('Create chat error:', error);
+    res.status(500).json({ error: 'Failed to create chat' });
+  }
+});
+
+// GET /api/chats/:chat_id
+// Get chat details
+router.get('/:chat_id', authenticate, async (req, res) => {
+  try {
+    const chat = await Chat.findById(req.params.chat_id);
+
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+
+    // Check if user is part of the chat
+    if (chat.user1_id !== req.userId && chat.user2_id !== req.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    res.json({ chat });
+  } catch (error) {
+    console.error('Get chat error:', error);
+    res.status(500).json({ error: 'Failed to fetch chat' });
+  }
+});
+
+// GET /api/chats/:chat_id/messages
+// Get messages in a chat
+router.get('/:chat_id/messages', authenticate, async (req, res) => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit) : 50;
+    const offset = req.query.offset ? parseInt(req.query.offset) : 0;
+
+    // Verify user is part of chat
+    const chat = await Chat.findById(req.params.chat_id);
+    
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+
+    if (chat.user1_id !== req.userId && chat.user2_id !== req.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const messages = await Message.getChatMessages(req.params.chat_id, limit, offset);
+
+    // Mark messages as read
+    await Message.markAsRead(req.params.chat_id, req.userId);
+
+    res.json({
+      messages,
+      count: messages.length
+    });
+  } catch (error) {
+    console.error('Get messages error:', error);
+    res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+});
+
+// POST /api/chats/:chat_id/messages
+// Send a message in a chat
+router.post('/:chat_id/messages', authenticate, async (req, res) => {
+  try {
+    const { message_content, message_type, media_url } = req.body;
+
+    if (!message_content) {
+      return res.status(400).json({ error: 'message_content is required' });
+    }
+
+    // Verify user is part of chat
+    const chat = await Chat.findById(req.params.chat_id);
+    
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+
+    if (chat.user1_id !== req.userId && chat.user2_id !== req.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const message = await Message.create({
+      chat_id: req.params.chat_id,
+      sender_id: req.userId,
+      message_type: message_type || 'text',
+      message_content,
+      media_url
+    });
+
+    res.status(201).json({
+      message: 'Message sent',
+      data: message
+    });
+  } catch (error) {
+    console.error('Send message error:', error);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+// PUT /api/chats/:chat_id/read
+// Mark all messages in chat as read
+router.put('/:chat_id/read', authenticate, async (req, res) => {
+  try {
+    const markedMessages = await Message.markAsRead(req.params.chat_id, req.userId);
+
+    res.json({
+      message: 'Messages marked as read',
+      count: markedMessages.length
+    });
+  } catch (error) {
+    console.error('Mark as read error:', error);
+    res.status(500).json({ error: 'Failed to mark messages as read' });
+  }
+});
+
+// GET /api/chats/unread/count
+// Get unread message count
+router.get('/unread/count', authenticate, async (req, res) => {
+  try {
+    const count = await Message.getUnreadCount(req.userId);
+
+    res.json({
+      unread_count: parseInt(count)
+    });
+  } catch (error) {
+    console.error('Get unread count error:', error);
+    res.status(500).json({ error: 'Failed to fetch unread count' });
+  }
+});
+
+// DELETE /api/chats/:chat_id
+// Delete/deactivate a chat
+router.delete('/:chat_id', authenticate, async (req, res) => {
+  try {
+    // Verify user is part of chat
+    const chat = await Chat.findById(req.params.chat_id);
+    
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+
+    if (chat.user1_id !== req.userId && chat.user2_id !== req.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    await Chat.deactivate(req.params.chat_id);
+
+    res.json({ message: 'Chat deleted successfully' });
+  } catch (error) {
+    console.error('Delete chat error:', error);
+    res.status(500).json({ error: 'Failed to delete chat' });
+  }
+});
+
+export default router;
