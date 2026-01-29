@@ -111,6 +111,17 @@ const activeChannels = new Map(); // Map of channelName -> Set of userIds in cha
 
 // Socket.IO connection handler
 io.on('connection', (socket) => {
+    // Handle call:initiate from Flutter: emit incoming-call to callee
+    socket.on('call:initiate', (data) => {
+      const { listenerId, ...callData } = data || {};
+      const listenerSocketId = connectedUsers.get(listenerId) || listenerSockets.get(listenerId);
+      if (listenerSocketId) {
+        io.to(listenerSocketId).emit('incoming-call', callData);
+        console.log(`[SOCKET] call:initiate: sent incoming-call to ${listenerId}`);
+      } else {
+        console.log(`[SOCKET] call:initiate: listener ${listenerId} not online`);
+      }
+    });
   console.log(`SOCKET CONNECTED: ${socket.id}`);
 
   // Listener joins with their user_id

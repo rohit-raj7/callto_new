@@ -90,6 +90,8 @@ class SocketService {
     _incomingCallController ??= StreamController<IncomingCall>.broadcast();
     return _incomingCallController!;
   }
+  // Public stream for incoming-call event
+  Stream<IncomingCall> get onIncomingCallEvent => _incomingCall.stream;
   
   StreamController<Map<String, dynamic>> get _callAccepted {
     _callAcceptedController ??= StreamController<Map<String, dynamic>>.broadcast();
@@ -198,6 +200,31 @@ class SocketService {
           listenerOnlineMap[id] = online;
           _listenerStatusController.add(Map.from(listenerOnlineMap));
         }
+      });
+      // Listen for incoming-call event from backend
+      _socket!.on('incoming-call', (data) {
+        try {
+          if (data is Map<String, dynamic>) {
+            _incomingCall.add(IncomingCall.fromJson(data));
+          } else if (data is Map) {
+            _incomingCall.add(IncomingCall.fromJson(Map<String, dynamic>.from(data)));
+          }
+        } catch (e) {
+          _log('Error parsing incoming-call: $e');
+        }
+      });
+      // Add listeners for backend-emitted call events
+      _socket!.on('call:accepted', (data) {
+        _callAccepted.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
+      });
+      _socket!.on('call:rejected', (data) {
+        _callRejected.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
+      });
+      _socket!.on('call:ended', (data) {
+        _callEnded.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
+      });
+      _socket!.on('call:connected', (data) {
+        _callConnected.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
       });
     }
     _socket!.connect();
