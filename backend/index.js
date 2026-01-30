@@ -8,9 +8,6 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import config from './config/config.js';
 import { testConnection, ensureSchema } from './db.js';
-import User from './models/User.js';
-import Listener from './models/Listener.js';
-
 // Initialize Express app
 const app = express();
 const server = http.createServer(app);

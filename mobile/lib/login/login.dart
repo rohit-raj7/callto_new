@@ -284,7 +284,7 @@ class _LoginScreenState extends State with TickerProviderStateMixin {
   void _navigateToTerms() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const TermsAndConditionsPage()),
+      MaterialPageRoute(builder: (context) => const TermsOfServiceScreen()),
     );
   }
 

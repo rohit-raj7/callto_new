@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../support/contact_support.dart';
 
 class FAQsPage extends StatefulWidget {
   const FAQsPage({super.key});
@@ -254,30 +255,29 @@ class _FAQsPageState extends State<FAQsPage> {
               ],
             ),
             child: SafeArea(
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.blueAccent,
-                  side: const BorderSide(color: Colors.blueAccent, width: 2),
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.pinkAccent,
+                  foregroundColor: Colors.white,
+                  elevation: 2,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 onPressed: () {
-                  // Add contact support functionality
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Opening support chat...'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ContactSupportPage()),
                   );
                 },
-                icon: const Icon(Icons.chat_bubble_outline),
+                icon: const Icon(Icons.support_agent, size: 22),
                 label: const Text(
                   "Still need help? Contact Support",
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),

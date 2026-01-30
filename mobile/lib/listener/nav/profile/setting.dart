@@ -4,6 +4,8 @@
 import 'package:flutter/material.dart';
 import '../../../terms_condition/privacy_policy.dart';
 import '../../../terms_condition/terms_of_use.dart';
+
+import '../../../terms_condition/refund_policy.dart';
 import '../../../account/delete.dart';
 import '../../../account/logout.dart'; 
 import '../../../terms_condition/faqs.dart';
@@ -62,7 +64,7 @@ class SettingsPage extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const TermsAndConditionsPage()),
+                MaterialPageRoute(builder: (context) => const TermsOfServiceScreen()),
               );
             },
           ),
@@ -77,7 +79,18 @@ class SettingsPage extends StatelessWidget {
               );
             },
           ),
-        _buildSettingTile(
+          _buildSettingTile(
+            icon: Icons.receipt_long_outlined,
+            title: "Refund Policy",
+            iconColor: Colors.pinkAccent,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const RefundPolicyScreen()),
+              );
+            },
+          ),
+          _buildSettingTile(
             icon: Icons.help_outline,
             title: "FAQs",
             iconColor: Colors.blueAccent,

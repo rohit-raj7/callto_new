@@ -19,66 +19,69 @@ class _ContactUsPageState extends State<ContactUsPage> {
     final isMobile = screenWidth < 600;
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(100),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blue.shade600, Colors.purpleAccent.shade100],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text('Contact Us', style: TextStyle(fontWeight: FontWeight.w600)),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+          tooltip: "Back",
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(0),
+        children: [
+          // Header Section
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-          ),
-          child: SafeArea(
-            child: Stack(
-              alignment: Alignment.center,
+            child: Column(
               children: [
-                // Back Button
-                Positioned(
-                  left: 8,
-                  top: 8,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white, size: 24),
-                    onPressed: () => Navigator.pop(context),
-                    tooltip: "Back",
+                Icon(
+                  Icons.support_agent_rounded,
+                  size: 64,
+                  color: Colors.pinkAccent.shade200,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "We’d love to hear from you!",
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
                 ),
-
-                // Title + Subtitle
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Text(
-                      "Contact Us",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      "We’d love to hear from you!",
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 8),
+                Text(
+                  "Have a question, suggestion, or issue? Use the info below or fill out the form and our team will respond soon.",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
           ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Column(
-          children: [
-            // Contact Info Cards
-            Wrap(
+
+          // Contact Info Cards
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            child: Wrap(
               spacing: 12,
               runSpacing: 12,
               children: [
@@ -103,105 +106,111 @@ class _ContactUsPageState extends State<ContactUsPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+          ),
 
-            // Message Form
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    _buildTextField(
-                      controller: _nameController,
-                      label: "Your Name",
-                      icon: Icons.person_outline,
-                      validator: (v) =>
-                          v!.isEmpty ? "Please enter your name" : null,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTextField(
-                      controller: _emailController,
-                      label: "Email Address",
-                      icon: Icons.email_outlined,
-                      validator: (v) => v!.isEmpty
-                          ? "Please enter your email"
-                          : (!v.contains('@') ? "Enter a valid email" : null),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTextField(
-                      controller: _messageController,
-                      label: "Your Message",
-                      icon: Icons.message_outlined,
-                      maxLines: 4,
-                      validator: (v) =>
-                          v!.isEmpty ? "Message cannot be empty" : null,
-                    ),
-                    const SizedBox(height: 18),
-
-                    // Send Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                        ),
-                        onPressed: () {
-                          if (_formKey.currentState!.validate()) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Message Sent Successfully!"),
-                                backgroundColor: Colors.blueAccent,
-                              ),
-                            );
-                            _nameController.clear();
-                            _emailController.clear();
-                            _messageController.clear();
-                          }
-                        },
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF007BFF), Color(0xFF00B4FF)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+          // Message Form
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+            child: Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      Card(
+                        elevation: 1,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          child: TextFormField(
+                            controller: _nameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Your Name',
+                              border: InputBorder.none,
+                              prefixIcon: Icon(Icons.person_outline_rounded),
                             ),
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                          child: const Center(
-                            child: Text(
-                              "Send Message",
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            validator: (v) => v!.isEmpty ? "Please enter your name" : null,
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      Card(
+                        elevation: 1,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          child: TextFormField(
+                            controller: _emailController,
+                            decoration: const InputDecoration(
+                              labelText: 'Email Address',
+                              border: InputBorder.none,
+                              prefixIcon: Icon(Icons.email_outlined),
+                            ),
+                            validator: (v) => v!.isEmpty
+                                ? "Please enter your email"
+                                : (!v.contains('@') ? "Enter a valid email" : null),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Card(
+                        elevation: 1,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          child: TextFormField(
+                            controller: _messageController,
+                            maxLines: 4,
+                            decoration: const InputDecoration(
+                              labelText: 'Your Message',
+                              border: InputBorder.none,
+                              prefixIcon: Icon(Icons.message_outlined),
+                            ),
+                            validator: (v) => v!.isEmpty ? "Message cannot be empty" : null,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.pinkAccent,
+                            foregroundColor: Colors.white,
+                            elevation: 2,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: () {
+                            if (_formKey.currentState!.validate()) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Message Sent Successfully!"),
+                                  backgroundColor: Colors.pinkAccent,
+                                ),
+                              );
+                              _nameController.clear();
+                              _emailController.clear();
+                              _messageController.clear();
+                            }
+                          },
+                          icon: const Icon(Icons.send_rounded, size: 22),
+                          label: const Text("Send Message"),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
