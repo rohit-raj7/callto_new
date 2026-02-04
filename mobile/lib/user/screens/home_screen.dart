@@ -35,13 +35,21 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     selectedTopic = 'All';
-    _loadListeners();
-    SocketService().connectListener();
+    
+    // Connect to socket first to get initial presence status
+    SocketService().connectListener().then((_) {
+      if (mounted) {
+        _loadListeners();
+      }
+    });
+
     // --- FIX: Listen for real-time status, no default offline ---
     SocketService().listenerStatusStream.listen((map) {
-      setState(() {
-        listenerOnlineMap = Map.from(map);
-      });
+      if (mounted) {
+        setState(() {
+          listenerOnlineMap = Map.from(map);
+        });
+      }
     });
   }
 

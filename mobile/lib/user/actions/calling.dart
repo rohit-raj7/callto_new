@@ -10,7 +10,7 @@ import '../../services/socket_service.dart';
 import '../../services/call_service.dart';
 
 // Agora App ID - loaded from backend via token request
-const String _agoraAppId = '1a72ae2630224062a6192784611ffce6';
+const String _agoraAppId = '3ce923c6b5cb422bae0674cc9ddf11f0';
 
 class Calling extends StatefulWidget {
   final String callerName;

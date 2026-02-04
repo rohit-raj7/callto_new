@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 class ApiConfig {
   static final String baseUrl = kDebugMode
-      ? 'http://localhost:3002'
+      ? 'http://localhost:3001'
       : 'https://callto-4.onrender.com';
 
   // static final String baseUrl = 'https://callto-4.onrender.com';

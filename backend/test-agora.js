@@ -3,8 +3,8 @@ const { RtcTokenBuilder, RtcRole } = pkg;
 import dotenv from 'dotenv';
 dotenv.config();
 
-const appId = '1a72ae2630224062a6192784611ffce6';
-const appCertificate = 'a3b05ed3f48c414d8cb8bd4a13195395';
+const appId = '3ce923c6b5cb422bae0674cc9ddf11f0';
+const appCertificate = '4555118b8d6242d2b21e5ef9c2ad021e';
 const channelName = 'test_channel';
 const uid = 0;
 const role = RtcRole.PUBLISHER;

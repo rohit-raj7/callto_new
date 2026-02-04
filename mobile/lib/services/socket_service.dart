@@ -150,13 +150,20 @@ class SocketService {
 
   /// Connect to the socket server and setup listeners
   Future<bool> connect() async {
-    if (_connecting || _isConnected) return true;
+    if (_isConnected) return true;
+    if (_connecting) {
+      if (_connectionCompleter != null) return _connectionCompleter!.future;
+      return false;
+    }
+    
     _connecting = true;
+    _connectionCompleter = Completer<bool>();
     
     final userId = await _storage.getUserId();
     if (userId == null) {
       _log('No userId found, cannot connect');
       _connecting = false;
+      _connectionCompleter!.complete(false);
       return false;
     }
     
@@ -190,17 +197,24 @@ class SocketService {
         _log('Emitting listener:join $userId');
         _socket!.emit('listener:join', userId);
       }
-    });
-
-    _socket!.onDisconnect((_) {
-      _isConnected = false;
-      _log('Socket disconnected');
-      _connectionState.add(false);
+      
+      if (_connectionCompleter != null && !_connectionCompleter!.isCompleted) {
+        _connectionCompleter!.complete(true);
+      }
     });
 
     _socket!.onConnectError((err) {
       _isConnected = false;
       _log('Socket connect error: $err');
+      _connectionState.add(false);
+      if (_connectionCompleter != null && !_connectionCompleter!.isCompleted) {
+        _connectionCompleter!.complete(false);
+      }
+    });
+
+    _socket!.onDisconnect((_) {
+      _isConnected = false;
+      _log('Socket disconnected');
       _connectionState.add(false);
     });
 
@@ -210,6 +224,18 @@ class SocketService {
         final id = data['listenerUserId'].toString();
         final online = data['online'] == true;
         listenerOnlineMap[id] = online;
+        _listenerStatusController.add(Map.from(listenerOnlineMap));
+      }
+    });
+
+    _socket!.on('listeners:initial_status', (data) {
+      _log('Received initial listener status: $data');
+      if (data is List) {
+        // Clear old online status (optional, but good for sync)
+        listenerOnlineMap.clear();
+        for (var id in data) {
+          listenerOnlineMap[id.toString()] = true;
+        }
         _listenerStatusController.add(Map.from(listenerOnlineMap));
       }
     });

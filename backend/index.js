@@ -130,6 +130,10 @@ io.on('connection', (socket) => {
     
     io.emit('user:online', { userId });
     console.log(`[SOCKET] User joined: ${userId}`);
+
+    // Send current online listeners to the newly joined user
+    const onlineListeners = Array.from(listenerSockets.keys());
+    socket.emit('listeners:initial_status', onlineListeners);
   });
 
   // Listener specific join (for availability tracking)
