@@ -48,6 +48,14 @@ class _ExpertCardState extends State<ExpertCard> with SingleTickerProviderStateM
   void initState() {
     super.initState();
     print('[EXPERT_CARD] Init for listenerUserId: ${widget.listenerUserId}, listenerId: ${widget.listenerId}');
+    
+    // Initialize online status from the stream immediately if available
+    final initialMap = SocketService().listenerOnlineMap;
+    final id = widget.listenerUserId ?? widget.listenerId;
+    if (id != null && initialMap.containsKey(id)) {
+      isListenerOnline = initialMap[id]!;
+    }
+
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -110,8 +118,10 @@ class _ExpertCardState extends State<ExpertCard> with SingleTickerProviderStateM
   }
 
   void _handleCallNow() async {
-    // Check if listener is online
-    if (!isListenerOnline) {
+    // Check if listener is online from real-time socket map or widget status
+    final currentOnlineStatus = isListenerOnline;
+    
+    if (!currentOnlineStatus) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Listener is offline')),

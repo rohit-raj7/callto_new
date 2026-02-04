@@ -3,7 +3,7 @@ dotenv.config();
 
 export default {
   // Server configuration
-  PORT: process.env.PORT || 3001,
+  PORT: process.env.PORT || 3002,
   NODE_ENV: process.env.NODE_ENV || 'development',
 
   // Database configuration (AWS RDS PostgreSQL)

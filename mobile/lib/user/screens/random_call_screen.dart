@@ -1,9 +1,11 @@
-﻿import 'dart:ui';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../actions/calling.dart';
 import '../../services/socket_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/call_service.dart';
+import '../../services/listener_service.dart';
+import '../../models/listener_model.dart' as model;
 
 class RandomCallScreen extends StatefulWidget {
   const RandomCallScreen({super.key});
@@ -17,38 +19,7 @@ class _RandomCallScreenState extends State<RandomCallScreen> {
   Map<String, String>? matchedUser;
   final SocketService _socketService = SocketService();
   final StorageService _storage = StorageService();
-
-  // TODO: Replace with real API call to get random available listeners
-  final List<Map<String, String>> randomPeople = [
-    {
-      'id': 'listener_1',
-      'name': 'Khushi Sharma',
-      'city': 'Delhi, India',
-      'topic': 'Confidence & Motivation',
-      'image': 'assets/images/khushi.jpg',
-    },
-    {
-      'id': 'listener_2',
-      'name': 'Aarav Patel',
-      'city': 'Ahmedabad, India',
-      'topic': 'Career Guidance',
-      'image': 'assets/images/khushi.jpg',
-    },
-    {
-      'id': 'listener_3',
-      'name': 'Priya Mehta',
-      'city': 'Mumbai, India',
-      'topic': 'Relationships & Life',
-      'image': 'assets/images/khushi.jpg',
-    },
-    {
-      'id': 'listener_4',
-      'name': 'Ananya Rao',
-      'city': 'Bangalore, India',
-      'topic': 'Mental Wellness',
-      'image': 'assets/images/khushi.jpg',
-    },
-  ];
+  final ListenerService _listenerService = ListenerService();
 
   void findRandomPerson() async {
     setState(() {
@@ -56,12 +27,43 @@ class _RandomCallScreenState extends State<RandomCallScreen> {
       matchedUser = null;
     });
 
-    await Future.delayed(const Duration(seconds: 3));
-
-    setState(() {
-      isSearching = false;
-      matchedUser = (randomPeople..shuffle()).first;
-    });
+    try {
+      final result = await _listenerService.getListeners(isOnline: true, limit: 20);
+      
+      if (result.success && result.listeners.isNotEmpty) {
+        final listeners = result.listeners;
+        listeners.shuffle();
+        final randomListener = listeners.first;
+        
+        setState(() {
+          isSearching = false;
+          matchedUser = {
+            'id': randomListener.userId,
+            'listener_id': randomListener.listenerId,
+            'name': randomListener.professionalName ?? 'Unknown',
+            'city': randomListener.city ?? 'Unknown',
+            'topic': randomListener.specialties.isNotEmpty ? randomListener.specialties.first : 'General',
+            'image': randomListener.avatarUrl ?? 'assets/images/khushi.jpg',
+          };
+        });
+      } else {
+        await Future.delayed(const Duration(seconds: 2));
+        setState(() {
+          isSearching = false;
+          matchedUser = null;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No listeners online right now. Please try again later.')),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error finding random listener: $e');
+      setState(() {
+        isSearching = false;
+      });
+    }
   }
 
   void startCall(Map<String, String> user) async {

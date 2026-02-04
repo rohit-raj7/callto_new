@@ -24,6 +24,7 @@ import listenerRoutes from './routes/listeners.js';
 import callRoutes from './routes/calls.js';
 import chatRoutes from './routes/chats.js';
 import adminRoutes from './routes/admin.js';
+import User from './models/User.js';
 
 // ============================================
 // MIDDLEWARE
@@ -105,68 +106,86 @@ app.use('/api/admin', adminRoutes);
 const connectedUsers = new Map(); // Map of userId -> socketId
 const listenerSockets = new Map(); // Map of listenerUserId -> socketId
 const activeChannels = new Map(); // Map of channelName -> Set of userIds in channel
+const lastSeenMap = new Map(); // Map of userId -> timestamp
+const presenceTimeouts = new Map(); // Map of userId -> timeoutId
 
 // Socket.IO connection handler
 io.on('connection', (socket) => {
-    // Handle call:initiate from Flutter: emit incoming-call to callee
-    socket.on('call:initiate', (data) => {
-      const { listenerId, ...callData } = data || {};
-      const listenerSocketId = connectedUsers.get(listenerId) || listenerSockets.get(listenerId);
-      if (listenerSocketId) {
-        io.to(listenerSocketId).emit('incoming-call', callData);
-        console.log(`[SOCKET] call:initiate: sent incoming-call to ${listenerId}`);
-      } else {
-        console.log(`[SOCKET] call:initiate: listener ${listenerId} not online`);
-      }
-    });
-  console.log(`SOCKET CONNECTED: ${socket.id}`);
+  console.log(`[SOCKET] Connected: ${socket.id}`);
 
-  // Listener joins with their user_id
+  // 1. IDENTITY & PRESENCE
+  
+  // User joins (can be regular user or listener)
+  socket.on('user:join', (userId) => {
+    if (!userId) return;
+    socket.userId = userId;
+    connectedUsers.set(userId, socket.id);
+    lastSeenMap.set(userId, Date.now());
+    
+    // Clear any pending offline timeout
+    if (presenceTimeouts.has(userId)) {
+      clearTimeout(presenceTimeouts.get(userId));
+      presenceTimeouts.delete(userId);
+    }
+    
+    io.emit('user:online', { userId });
+    console.log(`[SOCKET] User joined: ${userId}`);
+  });
+
+  // Listener specific join (for availability tracking)
   socket.on('listener:join', (listenerUserId) => {
     if (!listenerUserId) return;
-    // Remove old socket if exists
+    socket.userId = listenerUserId; // Sync with userId
+    socket.listenerUserId = listenerUserId;
+    
+    // Remove old socket if exists to prevent ghost sessions
     if (listenerSockets.has(listenerUserId)) {
       const oldSocketId = listenerSockets.get(listenerUserId);
       if (oldSocketId && oldSocketId !== socket.id) {
-        // Disconnect old socket
         const oldSocket = io.sockets.sockets.get(oldSocketId);
-        if (oldSocket) {
-          oldSocket.disconnect(true);
-        }
+        if (oldSocket) oldSocket.disconnect(true);
       }
     }
+    
     listenerSockets.set(listenerUserId, socket.id);
-    socket.listenerUserId = listenerUserId;
-    // --- FIX: Always emit online status immediately ---
+    connectedUsers.set(listenerUserId, socket.id); // Also ensure in connectedUsers
+    
     io.emit('listener_status', { listenerUserId, online: true, timestamp: Date.now() });
-    console.log(`[SOCKET] io.emit listener_status ONLINE for ${listenerUserId}`);
+    console.log(`[SOCKET] Listener joined: ${listenerUserId}`);
   });
 
-  // Explicit offline event (for app background)
+  // Explicit offline event
   socket.on('listener:offline', (data) => {
     const { listenerUserId } = data || {};
-    if (listenerUserId && listenerSockets.has(listenerUserId)) {
+    if (listenerUserId) {
       listenerSockets.delete(listenerUserId);
-      // --- FIX: Only emit offline if truly offline ---
       io.emit('listener_status', { listenerUserId, online: false, timestamp: Date.now() });
-      console.log(`[SOCKET] io.emit listener_status OFFLINE for ${listenerUserId}`);
+      console.log(`[SOCKET] Listener offline: ${listenerUserId}`);
     }
   });
 
-  // On disconnect, mark listener as offline
-  socket.on('disconnect', () => {
-    if (socket.listenerUserId && listenerSockets.has(socket.listenerUserId)) {
-      listenerSockets.delete(socket.listenerUserId);
-      io.emit('listener_status', { listenerUserId: socket.listenerUserId, online: false, timestamp: Date.now() });
-      console.log(`[SOCKET] DISCONNECT: listenerUserId=${socket.listenerUserId}, socket.id=${socket.id}`);
+  // 2. CALL HANDLING
+
+  // Initiate call: User -> Listener
+  socket.on('call:initiate', (data) => {
+    const { listenerId, ...callData } = data || {};
+    // Check both maps for the listener's socket
+    const listenerSocketId = listenerSockets.get(listenerId) || connectedUsers.get(listenerId);
+    
+    if (listenerSocketId) {
+      io.to(listenerSocketId).emit('incoming-call', callData);
+      console.log(`[SOCKET] call:initiate: Forwarded to listener ${listenerId}`);
+    } else {
+      console.log(`[SOCKET] call:initiate: Listener ${listenerId} NOT online`);
+      // Optionally notify the caller that the listener is offline
+      socket.emit('call:failed', { callId: callData.callId, reason: 'listener_offline' });
     }
-    console.log(`SOCKET DISCONNECTED: ${socket.id}`);
   });
 
-  // Call accept
+  // Accept call: Listener -> User
   socket.on('call:accept', (data) => {
     const { callId, callerId } = data;
-    console.log(`✓ Call ${callId} accepted by ${socket.userId}`);
+    console.log(`[SOCKET] call:accept: Call ${callId} accepted by ${socket.userId}`);
     const callerSocketId = connectedUsers.get(callerId);
     if (callerSocketId) {
       io.to(callerSocketId).emit('call:accepted', {
@@ -176,46 +195,10 @@ io.on('connection', (socket) => {
     }
   });
 
-  // When a user joins an Agora channel (for web simulation)
-  socket.on('call:joined', (data) => {
-    const { callId, channelName } = data;
-    console.log(`📱 User ${socket.userId} joined channel ${channelName}`);
-    // Track users in this channel
-    if (!activeChannels.has(channelName)) {
-      activeChannels.set(channelName, new Set());
-    }
-    activeChannels.get(channelName).add(socket.userId);
-    const usersInChannel = activeChannels.get(channelName);
-    console.log(`   Users in channel ${channelName}:`, Array.from(usersInChannel));
-    // If 2 users are in the channel, notify both that call is connected
-    if (usersInChannel.size >= 2) {
-      console.log(`✓ Both parties in channel ${channelName}, sending call:connected`);
-      usersInChannel.forEach(userId => {
-        const userSocketId = connectedUsers.get(userId);
-        if (userSocketId) {
-          io.to(userSocketId).emit('call:connected', {
-            callId,
-            channelName
-          });
-        }
-      });
-    }
-  });
-
-  // When a user leaves a channel
-  socket.on('call:left', (data) => {
-    const { channelName } = data;
-    if (activeChannels.has(channelName)) {
-      activeChannels.get(channelName).delete(socket.userId);
-      if (activeChannels.get(channelName).size === 0) {
-        activeChannels.delete(channelName);
-      }
-    }
-  });
-
-  // Call reject
+  // Reject call: Listener -> User
   socket.on('call:reject', (data) => {
     const { callId, callerId } = data;
+    console.log(`[SOCKET] call:reject: Call ${callId} rejected by ${socket.userId}`);
     const callerSocketId = connectedUsers.get(callerId);
     if (callerSocketId) {
       io.to(callerSocketId).emit('call:rejected', {
@@ -225,9 +208,35 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Call end
+  // Joined Agora channel (for both parties)
+  socket.on('call:joined', (data) => {
+    const { callId, channelName } = data;
+    const userId = socket.userId;
+    if (!userId) return;
+
+    console.log(`[SOCKET] User ${userId} joined channel ${channelName}`);
+    
+    if (!activeChannels.has(channelName)) {
+      activeChannels.set(channelName, new Set());
+    }
+    activeChannels.get(channelName).add(userId);
+    
+    const usersInChannel = activeChannels.get(channelName);
+    if (usersInChannel.size >= 2) {
+      console.log(`[SOCKET] Both parties in ${channelName}, emitting call:connected`);
+      usersInChannel.forEach(uid => {
+        const sid = connectedUsers.get(uid);
+        if (sid) {
+          io.to(sid).emit('call:connected', { callId, channelName });
+        }
+      });
+    }
+  });
+
+  // End call
   socket.on('call:end', (data) => {
     const { callId, otherUserId } = data;
+    console.log(`[SOCKET] call:end: Call ${callId} ended by ${socket.userId}`);
     const otherSocketId = connectedUsers.get(otherUserId);
     if (otherSocketId) {
       io.to(otherSocketId).emit('call:ended', {
@@ -237,59 +246,77 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Disconnect - notify other users in active channels
+  // Leave channel
+  socket.on('call:left', (data) => {
+    const { channelName } = data;
+    if (activeChannels.has(channelName) && socket.userId) {
+      activeChannels.get(channelName).delete(socket.userId);
+      if (activeChannels.get(channelName).size === 0) {
+        activeChannels.delete(channelName);
+      }
+    }
+  });
+
+  // 3. DISCONNECTION
+
   socket.on('disconnect', () => {
-    if (socket.userId) {
-      // Find all channels this user was in and notify other participants
+    const userId = socket.userId;
+    const listenerUserId = socket.listenerUserId;
+
+    console.log(`[SOCKET] Disconnected: ${socket.id} (User: ${userId}, Listener: ${listenerUserId})`);
+
+    // Handle listener cleanup
+    if (listenerUserId && listenerSockets.get(listenerUserId) === socket.id) {
+      listenerSockets.delete(listenerUserId);
+      io.emit('listener_status', { listenerUserId, online: false, timestamp: Date.now() });
+      console.log(`[SOCKET] Listener marked offline: ${listenerUserId}`);
+    }
+
+    // Handle user cleanup and active calls
+    if (userId) {
+      // Notify others in active channels
       for (const [channelName, users] of activeChannels.entries()) {
-        if (users.has(socket.userId)) {
-          // Notify all other users in this channel that this user left
-          users.forEach(userId => {
-            if (userId !== socket.userId) {
-              const otherSocketId = connectedUsers.get(userId);
-              if (otherSocketId) {
-                console.log(`📞 Notifying ${userId} that ${socket.userId} disconnected from ${channelName}`);
-                io.to(otherSocketId).emit('call:ended', {
+        if (users.has(userId)) {
+          users.forEach(otherUid => {
+            if (otherUid !== userId) {
+              const otherSid = connectedUsers.get(otherUid);
+              if (otherSid) {
+                io.to(otherSid).emit('call:ended', {
                   callId: channelName,
-                  endedBy: socket.userId,
+                  endedBy: userId,
                   reason: 'peer_disconnected'
                 });
               }
             }
           });
-          // Remove user from channel
-          users.delete(socket.userId);
-          if (users.size === 0) {
-            activeChannels.delete(channelName);
-          }
+          users.delete(userId);
+          if (users.size === 0) activeChannels.delete(channelName);
         }
       }
 
-      // Debounce offline: wait 1s before marking offline, cancel if heartbeat comes in
-      if (presenceTimeouts.has(socket.userId)) {
-        clearTimeout(presenceTimeouts.get(socket.userId));
+      // Debounce offline status
+      if (presenceTimeouts.has(userId)) {
+        clearTimeout(presenceTimeouts.get(userId));
       }
+      
       const timeoutId = setTimeout(async () => {
-        // Only mark offline if lastSeen is >1s ago
-        const lastSeen = lastSeenMap.get(socket.userId) || 0;
+        const lastSeen = lastSeenMap.get(userId) || 0;
         if (Date.now() - lastSeen > 1000) {
-          connectedUsers.delete(socket.userId);
-          lastSeenMap.delete(socket.userId);
-          presenceTimeouts.delete(socket.userId);
-          // Update DB last_seen
+          connectedUsers.delete(userId);
+          lastSeenMap.delete(userId);
+          presenceTimeouts.delete(userId);
+          
           try {
-            await User.updateLastSeen(socket.userId);
-          } catch (err) {
-            console.error('Failed to update last_seen in DB:', err);
-          }
-          io.emit('user:offline', { userId: socket.userId });
-          console.log(`User ${socket.userId} marked offline after debounce`);
+            // await User.updateLastSeen(userId); 
+          } catch (err) {}
+          
+          io.emit('user:offline', { userId });
+          console.log(`[SOCKET] User ${userId} marked offline (debounce)`);
         }
       }, 1000);
-      presenceTimeouts.set(socket.userId, timeoutId);
-      console.log(`User ${socket.userId} disconnected, will mark offline in 1s if no heartbeat`);
+      
+      presenceTimeouts.set(userId, timeoutId);
     }
-    console.log(`✗ Socket disconnected: ${socket.id}`);
   });
 });
 

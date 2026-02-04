@@ -26,7 +26,11 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     if (!listener.is_available || !listener.is_online) {
-      return res.status(400).json({ error: 'Listener is not available' });
+      console.log(`[CALLS] Listener ${listener_id} unavailable: available=${listener.is_available}, online=${listener.is_online}`);
+      return res.status(400).json({ 
+        error: 'Listener is not available',
+        details: { is_available: listener.is_available, is_online: listener.is_online }
+      });
     }
 
     // Create call
@@ -264,7 +268,11 @@ router.post('/random', authenticate, async (req, res) => {
     const listener = listeners[0];
 
     if (!listener.is_available || !listener.is_online) {
-      return res.status(400).json({ error: 'Listener is not available' });
+      console.log(`[CALLS] Listener ${listener_id} unavailable: available=${listener.is_available}, online=${listener.is_online}`);
+      return res.status(400).json({ 
+        error: 'Listener is not available',
+        details: { is_available: listener.is_available, is_online: listener.is_online }
+      });
     }
 
     // Create call with random listener
@@ -297,8 +305,10 @@ router.post('/random', authenticate, async (req, res) => {
 router.post('/agora/token', authenticate, async (req, res) => {
   try {
     const { channel_name, uid } = req.body;
+    console.log(`[AGORA] Token request for channel: ${channel_name}, uid: ${uid}`);
 
     if (!channel_name) {
+      console.log('[AGORA] Error: channel_name is required');
       return res.status(400).json({ error: 'channel_name is required' });
     }
 
@@ -306,27 +316,53 @@ router.post('/agora/token', authenticate, async (req, res) => {
     const appCertificate = config.agora.appCertificate;
 
     if (!appId || !appCertificate) {
-      console.error('Agora credentials not configured');
+      console.error('[AGORA] Error: Agora credentials not configured', { appId: !!appId, cert: !!appCertificate });
       return res.status(500).json({ error: 'Agora credentials not configured' });
     }
 
     // Use provided uid or default to 0 (will be assigned by Agora)
-    const userUid = uid ? parseInt(uid) : 0;
+    let userUid = 0;
+    if (uid !== undefined && uid !== null) {
+      userUid = parseInt(uid);
+      if (isNaN(userUid)) userUid = 0;
+    }
     
-    // Token expiry time (5 minutes from now)
-    const expirationTimeInSeconds = config.agora.tokenExpirySeconds;
+    // Token expiry time (1 hour from now - increased for stability)
+    const expirationTimeInSeconds = config.agora.tokenExpirySeconds || 3600;
     const currentTimestamp = Math.floor(Date.now() / 1000);
     const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
 
+    console.log(`[AGORA] Generating token with: appId=${appId.substring(0, 5)}..., cert=${appCertificate ? 'YES' : 'NO'}, channel=${channel_name}, uid=${userUid}, expiry=${expirationTimeInSeconds}s`);
+
     // Build token with uid
-    const token = RtcTokenBuilder.buildTokenWithUid(
-      appId,
-      appCertificate,
-      channel_name,
-      userUid,
-      RtcRole.PUBLISHER,
-      privilegeExpiredTs
-    );
+    let token;
+    try {
+      console.log('[AGORA] Calling RtcTokenBuilder.buildTokenWithUid...');
+      token = RtcTokenBuilder.buildTokenWithUid(
+        appId,
+        appCertificate,
+        channel_name,
+        userUid,
+        RtcRole.PUBLISHER,
+        privilegeExpiredTs
+      );
+      console.log('[AGORA] Token builder success');
+    } catch (buildError) {
+      console.error('[AGORA] buildTokenWithUid failed with error:', buildError);
+      console.error('[AGORA] Error stack:', buildError.stack);
+      return res.status(500).json({ 
+        error: 'Failed to build Agora token', 
+        details: buildError.message,
+        stack: buildError.stack
+      });
+    }
+
+    if (!token) {
+      console.error('[AGORA] Token builder returned empty token');
+      return res.status(500).json({ error: 'Generated token is empty' });
+    }
+
+    console.log('[AGORA] Token generated successfully');
 
     res.json({
       token,
@@ -335,8 +371,12 @@ router.post('/agora/token', authenticate, async (req, res) => {
       expires_at: new Date(privilegeExpiredTs * 1000).toISOString()
     });
   } catch (error) {
-    console.error('Generate Agora token error:', error);
-    res.status(500).json({ error: 'Failed to generate Agora token' });
+    console.error('[AGORA] Fatal error generating Agora token:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate Agora token',
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 

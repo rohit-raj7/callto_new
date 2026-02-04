@@ -188,6 +188,11 @@ class _CallingState extends State<Calling> with WidgetsBindingObserver, TickerPr
     _agoraService.registerEventHandler(RtcEngineEventHandler(
       onJoinChannelSuccess: (connection, elapsed) {
         print('User: Joined channel successfully: ${connection.channelId}');
+        // Notify server that we joined the call
+        _socketService.emitCallJoined(
+          callId: channelName,
+          otherUserId: widget.listenerId,
+        );
       },
       onUserJoined: (connection, remoteUid, elapsed) {
         print('User: Listener joined the call! UID: $remoteUid');
@@ -476,8 +481,8 @@ class _CallingState extends State<Calling> with WidgetsBindingObserver, TickerPr
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 68,
-            height: 68,
+            width: 56, // Reduced from 68
+            height: 56, // Reduced from 68
             decoration: BoxDecoration(
               color: isActive ? color : const Color(0xFF2A2A3E),
               shape: BoxShape.circle,
@@ -550,425 +555,455 @@ class _CallingState extends State<Calling> with WidgetsBindingObserver, TickerPr
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: <Widget>[
-              // Custom App Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  children: [
-                    // Back button
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-                        onPressed: _endCall,
-                      ),
-                    ),
-                    const Expanded(
-                      child: Text(
-                        "Call To",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                    // Spacer to keep title centered (same width as back button area)
-                    const SizedBox(width: 48),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Audio device status chip
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                transitionBuilder: (child, animation) {
-                  return ScaleTransition(scale: animation, child: child);
-                },
-                child: Container(
-                  key: ValueKey(_activeAudioMode),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        _getDeviceColor().withOpacity(0.2),
-                        _getDeviceColor().withOpacity(0.1),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(25),
-                    border: Border.all(color: _getDeviceColor().withOpacity(0.3)),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(_getDeviceIcon(), color: _getDeviceColor(), size: 18),
-                      const SizedBox(width: 10),
-                      Text(
-                        _getDeviceStatusText(),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: _getDeviceColor(),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const Spacer(flex: 1),
-
-              // Caller avatar section with enhanced design
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Outer glow rings
-                  if (!_isCallConnected) ...[
-                    AnimatedBuilder(
-                      animation: _pulseController,
-                      builder: (context, child) {
-                        return Container(
-                          width: 160 + (30 * _pulseController.value),
-                          height: 160 + (30 * _pulseController.value),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: accentColor.withOpacity(0.15 * (1 - _pulseController.value)),
-                              width: 1,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    AnimatedBuilder(
-                      animation: _pulseController,
-                      builder: (context, child) {
-                        return Container(
-                          width: 130 + (20 * _pulseController.value),
-                          height: 130 + (20 * _pulseController.value),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: accentColor.withOpacity(0.25 * (1 - _pulseController.value)),
-                              width: 2,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                  // Connected state ring
-                  if (_isCallConnected)
-                    Container(
-                      width: 140,
-                      height: 140,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.green.withOpacity(0.3),
-                            Colors.green.withOpacity(0.1),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        border: Border.all(color: Colors.green.withOpacity(0.5), width: 3),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.green.withOpacity(0.3),
-                            blurRadius: 25,
-                            spreadRadius: 5,
-                          ),
-                        ],
-                      ),
-                    ),
-                  // Avatar with enhanced styling
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: accentColor.withOpacity(0.3),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: ClipOval(
-                      child: _buildAvatarImage(widget.callerAvatar, const Color(0xFFB39DDB), 60),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              // Caller name with enhanced styling
-              Text(
-                widget.callerName,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Call status with enhanced design
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.2),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    ),
-                  );
-                },
-                child: _isCallConnected
-                    ? Container(
-                        key: const ValueKey('connected'),
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.green.withOpacity(0.2),
-                              Colors.green.withOpacity(0.1),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      children: <Widget>[
+                        // Custom App Bar
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              // Back button
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+                                  onPressed: _endCall,
+                                ),
+                              ),
+                              const Expanded(
+                                child: Text(
+                                  "Call To",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              // Spacer to keep title centered (same width as back button area)
+                              const SizedBox(width: 48),
                             ],
                           ),
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(color: Colors.green.withOpacity(0.3)),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.green.withOpacity(0.5),
-                                    blurRadius: 6,
-                                    spreadRadius: 2,
-                                  ),
+
+                        const SizedBox(height: 16),
+
+                        // Audio device status chip
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          transitionBuilder: (child, animation) {
+                            return ScaleTransition(scale: animation, child: child);
+                          },
+                          child: Container(
+                            key: ValueKey(_activeAudioMode),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  _getDeviceColor().withOpacity(0.2),
+                                  _getDeviceColor().withOpacity(0.1),
                                 ],
                               ),
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(color: _getDeviceColor().withOpacity(0.3)),
                             ),
-                            const SizedBox(width: 12),
-                            Text(
-                              _formatDuration(_callDuration),
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.green,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : Container(
-                        key: const ValueKey('connecting'),
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              (_connectionError != null ? Colors.red : accentColor).withOpacity(0.2),
-                              (_connectionError != null ? Colors.red : accentColor).withOpacity(0.1),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(color: (_connectionError != null ? Colors.red : accentColor).withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (_connectionError == null)
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                            else
-                              const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                            const SizedBox(width: 14),
-                            Text(
-                              _connectionError ?? 'Connecting...',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
-                                color: _connectionError != null ? Colors.red : accentColor,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-              ),
-
-              const Spacer(flex: 2),
-
-              // User section with card design
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 32),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // User avatar with glow effect
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withOpacity(0.3), width: 3),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (_isCallConnected ? Colors.green : accentColor).withOpacity(0.35),
-                            blurRadius: 14,
-                            spreadRadius: 2.5,
-                          ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: _buildAvatarImage(widget.userAvatar, const Color(0xFFB39DDB), 28),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    // User info
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.userName,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _isCallConnected ? 'In Call' : 'Calling...',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: _isCallConnected ? Colors.green : Colors.white54,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              // Control buttons
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildControlButton(
-                      icon: _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                      label: _isMuted ? 'Unmute' : 'Mute',
-                      color: _isMuted ? const Color(0xFFEF5350) : Colors.white70,
-                      onTap: _toggleMute,
-                      isActive: _isMuted,
-                    ),
-
-                    // End call button
-                    GestureDetector(
-                      onTap: _endCall,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 72,
-                            height: 72,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEF5350),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(_getDeviceIcon(), color: _getDeviceColor(), size: 18),
+                                const SizedBox(width: 10),
+                                Text(
+                                  _getDeviceStatusText(),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: _getDeviceColor(),
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ],
                             ),
-                            child: const Icon(
-                              Icons.call_end_rounded,
+                          ),
+                        ),
+
+                        const Spacer(flex: 1),
+
+                        // Caller avatar section with enhanced design
+                        SizedBox(
+                          height: 180,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Outer glow rings
+                              if (!_isCallConnected) ...[
+                                AnimatedBuilder(
+                                  animation: _pulseController,
+                                  builder: (context, child) {
+                                    return Container(
+                                      width: 140 + (30 * _pulseController.value),
+                                      height: 140 + (30 * _pulseController.value),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: accentColor.withOpacity(0.15 * (1 - _pulseController.value)),
+                                          width: 1,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                AnimatedBuilder(
+                                  animation: _pulseController,
+                                  builder: (context, child) {
+                                    return Container(
+                                      width: 110 + (20 * _pulseController.value),
+                                      height: 110 + (20 * _pulseController.value),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: accentColor.withOpacity(0.25 * (1 - _pulseController.value)),
+                                          width: 2,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                              // Connected state ring
+                              if (_isCallConnected)
+                                Container(
+                                  width: 130,
+                                  height: 130,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.green.withOpacity(0.3),
+                                        Colors.green.withOpacity(0.1),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    border: Border.all(color: Colors.green.withOpacity(0.5), width: 3),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.green.withOpacity(0.3),
+                                        blurRadius: 25,
+                                        spreadRadius: 5,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              // Avatar with enhanced styling
+                              Container(
+                                width: 110,
+                                height: 110,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 4),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: accentColor.withOpacity(0.3),
+                                      blurRadius: 20,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: ClipOval(
+                                  child: _buildAvatarImage(widget.callerAvatar, const Color(0xFFB39DDB), 55),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Caller name with enhanced styling
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Text(
+                            widget.callerName,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 24, // Reduced from 28
+                              fontWeight: FontWeight.bold,
                               color: Colors.white,
-                              size: 32,
+                              letterSpacing: 0.5,
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'End Call',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                        ),
 
-                    _buildControlButton(
-                      icon: _getDeviceIcon(),
-                      label: _getAudioButtonLabel(),
-                      color: _getDeviceColor(),
-                      onTap: _toggleAudioOutput,
-                      isActive: _activeAudioMode != AudioMode.speaker,
+                        const SizedBox(height: 16),
+
+                        // Call status with enhanced design
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          transitionBuilder: (child, animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0, 0.2),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: _isCallConnected
+                              ? Container(
+                                  key: const ValueKey('connected'),
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.green.withOpacity(0.2),
+                                        Colors.green.withOpacity(0.1),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(30),
+                                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: BoxDecoration(
+                                          color: Colors.green,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.green.withOpacity(0.5),
+                                              blurRadius: 6,
+                                              spreadRadius: 2,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        _formatDuration(_callDuration),
+                                        style: const TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.green,
+                                          letterSpacing: 1,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : Container(
+                                  key: const ValueKey('connecting'),
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        (_connectionError != null ? Colors.red : accentColor).withOpacity(0.2),
+                                        (_connectionError != null ? Colors.red : accentColor).withOpacity(0.1),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(30),
+                                    border: Border.all(color: (_connectionError != null ? Colors.red : accentColor).withOpacity(0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (_connectionError == null)
+                                        SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                                            strokeWidth: 2.5,
+                                          ),
+                                        )
+                                      else
+                                        const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                                      const SizedBox(width: 14),
+                                      Flexible(
+                                        child: Text(
+                                          _connectionError ?? 'Connecting...',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w600,
+                                            color: _connectionError != null ? Colors.red : accentColor,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                        ),
+
+                        const Spacer(flex: 1),
+
+                        // User section with card design
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 24),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: cardColor,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: Colors.white.withOpacity(0.1)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // User avatar with glow effect
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (_isCallConnected ? Colors.green : accentColor).withOpacity(0.35),
+                                      blurRadius: 14,
+                                      spreadRadius: 2.5,
+                                    ),
+                                  ],
+                                ),
+                                child: ClipOval(
+                                  child: _buildAvatarImage(widget.userAvatar, const Color(0xFFB39DDB), 28),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              // User info
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      widget.userName,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _isCallConnected ? 'In Call' : 'Calling...',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: _isCallConnected ? Colors.green : Colors.white54,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Control buttons
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 16), // Reduced from 24
+                          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8), // Reduced horizontal from 16
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _buildControlButton(
+                                icon: _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                                label: _isMuted ? 'Unmute' : 'Mute',
+                                color: _isMuted ? const Color(0xFFEF5350) : Colors.white70,
+                                onTap: _toggleMute,
+                                isActive: _isMuted,
+                              ),
+
+                              // End call button
+                              GestureDetector(
+                                onTap: _endCall,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 64, // Reduced from 72
+                                      height: 64, // Reduced from 72
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEF5350),
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.3),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Icon(
+                                        Icons.call_end_rounded,
+                                        color: Colors.white,
+                                        size: 32,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'End Call',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              _buildControlButton(
+                                icon: _getDeviceIcon(),
+                                label: _getAudioButtonLabel(),
+                                color: _getDeviceColor(),
+                                onTap: _toggleAudioOutput,
+                                isActive: _activeAudioMode != AudioMode.speaker,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-
-              const SizedBox(height: 30),
-            ],
+              );
+            },
           ),
         ),
       ),

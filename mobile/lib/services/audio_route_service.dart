@@ -89,18 +89,23 @@ class AudioRouteService {
           debugPrint('AudioRouteService event error: $e');
         },
       );
-    } on Exception catch (e) {
-      debugPrint('AudioRouteService: events unavailable ($e)');
+    } on MissingPluginException {
+      debugPrint('AudioRouteService: EventChannel plugin missing');
+      _eventSub = null;
+    } catch (e) {
+      debugPrint('AudioRouteService: EventChannel unavailable ($e)');
       _eventSub = null;
     }
 
     // Always do an initial refresh.
-    await refresh();
+    try {
+      await refresh();
+    } catch (e) {
+      debugPrint('AudioRouteService: Initial refresh failed ($e)');
+    }
 
     // Poll as a safety net (also covers environments without event channel).
-    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      refresh();
-    });
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => refresh());
   }
 
   void dispose() {
@@ -111,35 +116,42 @@ class AudioRouteService {
 
   /// Pull current route + available routes from platform.
   Future<void> refresh() async {
-    final Set<AudioMode> available = await _getAvailableModesSafe();
-    final AudioMode current = await _getCurrentModeSafe();
+    try {
+      final Set<AudioMode> available = await _getAvailableModesSafe();
+      final AudioMode current = await _getCurrentModeSafe();
 
-    // Ensure speaker is always available.
-    available.add(AudioMode.speaker);
+      // Ensure speaker is always available.
+      available.add(AudioMode.speaker);
 
-    final AudioRouteState prev = state.value;
-    AudioRouteState next = prev.copyWith(
-      availableModes: available,
-      currentMode: current,
-      clearLastError: true,
-    );
+      final AudioRouteState prev = state.value;
+      AudioRouteState next = prev.copyWith(
+        availableModes: available,
+        currentMode: current,
+        clearLastError: true,
+      );
 
-    // Default routing rules (wired > bluetooth > speaker).
-    final AudioMode defaultMode = _defaultModeFor(available);
+      // Default routing rules (wired > bluetooth > speaker).
+      final AudioMode defaultMode = _defaultModeFor(available);
 
-    // If user-selected mode becomes unavailable, clear it.
-    if (next.userSelectedMode != null && !available.contains(next.userSelectedMode)) {
-      next = next.copyWith(clearUserSelectedMode: true);
+      // If user-selected mode becomes unavailable, clear it.
+      if (next.userSelectedMode != null && !available.contains(next.userSelectedMode)) {
+        next = next.copyWith(clearUserSelectedMode: true);
+      }
+
+      // If no user override, keep currentMode aligned with defaults.
+      if (next.userSelectedMode == null && next.currentMode != defaultMode) {
+        next = next.copyWith(currentMode: defaultMode);
+        // Best effort apply.
+        unawaited(_applyRouteSafe(defaultMode));
+      }
+
+      state.value = next;
+    } on MissingPluginException {
+      // Expected if no native integration is provided.
+    } catch (e) {
+      debugPrint('AudioRouteService: Error refreshing audio route ($e)');
+      state.value = state.value.copyWith(lastError: e.toString());
     }
-
-    // If no user override, keep currentMode aligned with defaults.
-    if (next.userSelectedMode == null && next.currentMode != defaultMode) {
-      next = next.copyWith(currentMode: defaultMode);
-      // Best effort apply.
-      unawaited(_applyRouteSafe(defaultMode));
-    }
-
-    state.value = next;
   }
 
   /// Manual selection overrides auto routing.

@@ -20,7 +20,9 @@ class _HomeScreenState extends State<HomeScreen>
   StreamSubscription<List<IncomingCall>>? _callsSubscription;
   StreamSubscription<Map<String, bool>>? _statusSub;
   StreamSubscription<bool>? _connectionSub; // Added: For connection state
+  Timer? _heartbeatTimer; // Heartbeat timer
   final IncomingCallOverlayService _overlayService = IncomingCallOverlayService();
+  final ListenerService _listenerService = ListenerService();
   List<IncomingCall> incomingCalls = [];
   String? _listenerUserId;
 
@@ -36,7 +38,8 @@ class _HomeScreenState extends State<HomeScreen>
       _pulseController.repeat(reverse: true);
     }
     _setupCallsListener();
-    SocketService().connectListener(); // Added: Connect socket on init
+    _startHeartbeat(); // Start heartbeat
+    SocketService().setListenerOnline(true); // Set listener online and connect socket
     _listenerUserId = null;
     // Get listenerUserId once
     StorageService().getUserId().then((id) {
@@ -102,7 +105,20 @@ class _HomeScreenState extends State<HomeScreen>
     _callsSubscription?.cancel();
     _statusSub?.cancel();
     _connectionSub?.cancel(); // Added: Cancel connection subscription
+    _heartbeatTimer?.cancel(); // Cancel heartbeat
     super.dispose();
+  }
+
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    // Send heartbeat every 20 seconds (backend interval is 30s)
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 20), (timer) async {
+      if (isOnline) {
+        await _listenerService.sendHeartbeat();
+      }
+    });
+    // Send initial heartbeat
+    _listenerService.sendHeartbeat();
   }
 
   // Toggle logic removed

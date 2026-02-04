@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'api_service.dart';
+import 'api_config.dart';
 import 'storage_service.dart';
 
 /// Token fetch result
@@ -26,7 +28,7 @@ class AgoraService {
   AgoraService._internal();
 
   // Backend URL for token generation (use same URL as API config)
-  static const String _backendUrl = 'https://call-to2.vercel.app';
+  static final String _backendUrl = ApiConfig.baseUrl;
   
   // Storage service for auth token
   final StorageService _storage = StorageService();
@@ -49,29 +51,17 @@ class AgoraService {
     try {
       debugPrint('AgoraService: Fetching token for channel: $channelName');
       
-      // Get auth token from storage
-      final authToken = await _storage.getToken();
-      if (authToken == null) {
-        return TokenResult(
-          success: false,
-          error: 'No auth token found',
-        );
-      }
-      
-      final response = await http.post(
-        Uri.parse('$_backendUrl/api/calls/agora/token'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $authToken',
-        },
-        body: json.encode({
+      final apiService = ApiService();
+      final response = await apiService.post(
+        ApiConfig.agoraToken,
+        body: {
           'channel_name': channelName,
           'uid': 0, // Let Agora assign UID
-        }),
-      ).timeout(const Duration(seconds: 10));
+        },
+      );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      if (response.isSuccess) {
+        final data = response.data;
         debugPrint('AgoraService: Token fetched successfully');
         return TokenResult(
           success: true,
@@ -79,10 +69,10 @@ class AgoraService {
           uid: data['uid'],
         );
       } else {
-        debugPrint('AgoraService: Token fetch failed: ${response.statusCode}');
+        debugPrint('AgoraService: Token fetch failed: ${response.statusCode} - ${response.error}');
         return TokenResult(
           success: false,
-          error: 'Failed to get token: ${response.statusCode}',
+          error: response.error ?? 'Failed to get token: ${response.statusCode}',
         );
       }
     } catch (e) {
@@ -104,7 +94,28 @@ class AgoraService {
     try {
       debugPrint('AgoraService: Initializing Agora RTC Engine (AUDIO-ONLY) with appId: $appId');
       
-      _engine = createAgoraRtcEngine();
+      // Check if we are on web and if AgoraRTC is available
+      if (kIsWeb) {
+        debugPrint('AgoraService: Running on Web, checking for AgoraRTC SDK...');
+        // We can't easily check for JS objects here without dart:js, 
+        // but the try-catch below will catch the "createIrisApiEngine is undefined" error
+      }
+
+      try {
+        _engine = createAgoraRtcEngine();
+      } catch (e) {
+        debugPrint('AgoraService: createAgoraRtcEngine failed - $e');
+        if (e.toString().contains('createIrisApiEngine')) {
+          debugPrint('AgoraService: Iris API Engine not found. This usually means native/web dependencies are missing.');
+        }
+        return false;
+      }
+      
+      if (_engine == null) {
+        debugPrint('AgoraService: Failed to create engine instance');
+        return false;
+      }
+
       await _engine!.initialize(RtcEngineContext(
         appId: appId,
         channelProfile: ChannelProfileType.channelProfileCommunication,

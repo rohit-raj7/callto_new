@@ -148,17 +148,21 @@ class SocketService {
   /// Heartbeat timer
   Timer? _heartbeatTimer;
 
-  /// Connect to the socket server ONCE and setup listeners
-  Future<void> connectListener() async {
-    if (_connecting || _isConnected) return;
+  /// Connect to the socket server and setup listeners
+  Future<bool> connect() async {
+    if (_connecting || _isConnected) return true;
     _connecting = true;
-    _listenerUserId = await _storage.getUserId();
-    if (_listenerUserId == null) {
-      _log('No listenerUserId found, cannot connect');
+    
+    final userId = await _storage.getUserId();
+    if (userId == null) {
+      _log('No userId found, cannot connect');
       _connecting = false;
-      return;
+      return false;
     }
-    _log('Connecting socket for listenerUserId=$_listenerUserId');
+    
+    _currentUserId = userId;
+    _log('Connecting socket for userId=$userId');
+    
     _socket?.dispose();
     _socket = IO.io(
       ApiConfig.socketUrl,
@@ -171,79 +175,98 @@ class SocketService {
           .setExtraHeaders({'Connection': 'keep-alive'})
           .build(),
     );
+
     _socket!.onConnect((_) {
       _isConnected = true;
       _log('Socket connected: id=${_socket!.id}');
       _connectionState.add(true);
-      if (_listenerUserId != null) {
-        _log('Emitting listener:join $_listenerUserId');
-        _socket!.emit('listener:join', _listenerUserId);
+      
+      // Always join as user
+      _log('Emitting user:join $userId');
+      _socket!.emit('user:join', userId);
+      
+      // Also join as listener if we were a listener
+      if (_listenerOnline) {
+        _log('Emitting listener:join $userId');
+        _socket!.emit('listener:join', userId);
       }
     });
+
     _socket!.onDisconnect((_) {
       _isConnected = false;
       _log('Socket disconnected');
       _connectionState.add(false);
     });
+
     _socket!.onConnectError((err) {
       _isConnected = false;
       _log('Socket connect error: $err');
       _connectionState.add(false);
     });
-    if (!_listenerRegistered) {
-      _listenerRegistered = true;
-      _socket!.on('listener_status', (data) {
-        // --- FIX: Only update status from real events, not default ---
-        if (data is Map && data['listenerUserId'] != null && data['online'] != null) {
-          final id = data['listenerUserId'].toString();
-          final online = data['online'] == true;
-          listenerOnlineMap[id] = online;
-          _listenerStatusController.add(Map.from(listenerOnlineMap));
+
+    // --- RE-REGISTER ALL LISTENERS ON EVERY NEW SOCKET INSTANCE ---
+    _socket!.on('listener_status', (data) {
+      if (data is Map && data['listenerUserId'] != null && data['online'] != null) {
+        final id = data['listenerUserId'].toString();
+        final online = data['online'] == true;
+        listenerOnlineMap[id] = online;
+        _listenerStatusController.add(Map.from(listenerOnlineMap));
+      }
+    });
+
+    _socket!.on('incoming-call', (data) {
+      _log('Incoming call received: $data');
+      try {
+        if (data is Map<String, dynamic>) {
+          _incomingCall.add(IncomingCall.fromJson(data));
+        } else if (data is Map) {
+          _incomingCall.add(IncomingCall.fromJson(Map<String, dynamic>.from(data)));
         }
-      });
-      // Listen for incoming-call event from backend
-      _socket!.on('incoming-call', (data) {
-        try {
-          if (data is Map<String, dynamic>) {
-            _incomingCall.add(IncomingCall.fromJson(data));
-          } else if (data is Map) {
-            _incomingCall.add(IncomingCall.fromJson(Map<String, dynamic>.from(data)));
-          }
-        } catch (e) {
-          _log('Error parsing incoming-call: $e');
-        }
-      });
-      // Add listeners for backend-emitted call events
-      _socket!.on('call:accepted', (data) {
-        _callAccepted.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
-      });
-      _socket!.on('call:rejected', (data) {
-        _callRejected.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
-      });
-      _socket!.on('call:ended', (data) {
-        _callEnded.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
-      });
-      _socket!.on('call:connected', (data) {
-        _callConnected.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
-      });
-    }
+      } catch (e) {
+        _log('Error parsing incoming-call: $e');
+      }
+    });
+
+    _socket!.on('call:accepted', (data) {
+      _callAccepted.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
+    });
+    _socket!.on('call:rejected', (data) {
+      _callRejected.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
+    });
+    _socket!.on('call:failed', (data) {
+      _log('Call failed: $data');
+      // We can add a stream for call:failed if needed, or just log it
+    });
+    _socket!.on('call:ended', (data) {
+      _callEnded.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
+    });
+    _socket!.on('call:connected', (data) {
+      _callConnected.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
+    });
+
     _socket!.connect();
     _connecting = false;
+    return true;
+  }
+
+  /// Connect to the socket server ONCE and setup listeners (Alias for connect for compatibility)
+  Future<void> connectListener() async {
+    await connect();
   }
 
   /// Emit online (app resumed/foreground)
   void emitListenerOnline() {
-    if (_isConnected && _listenerUserId != null) {
-      _log('Emitting listener:join (online) $_listenerUserId');
-      _socket!.emit('listener:join', _listenerUserId);
+    if (_isConnected && _currentUserId != null) {
+      _log('Emitting listener:join (online) $_currentUserId');
+      _socket!.emit('listener:join', _currentUserId);
     }
   }
 
   /// Emit offline (app paused/detached)
   void emitListenerOffline() {
-    if (_isConnected && _listenerUserId != null) {
-      _log('Emitting listener:offline $_listenerUserId');
-      _socket!.emit('listener:offline', { 'listenerUserId': _listenerUserId });
+    if (_isConnected && _currentUserId != null) {
+      _log('Emitting listener:offline $_currentUserId');
+      _socket!.emit('listener:offline', { 'listenerUserId': _currentUserId });
     }
   }
 
@@ -251,22 +274,12 @@ class SocketService {
   Stream<Map<String, bool>> get listenerStatusStream => _listenerStatusController.stream;
 
   /// For listener screens: check own online
-  bool get isListenerOnline => _listenerUserId != null && listenerOnlineMap[_listenerUserId!] == true;
-
-  /// Dispose
+  bool get isListenerOnline => _currentUserId != null && listenerOnlineMap[_currentUserId!] == true;
 
   // Getter and setter for listenerOnline
   bool _listenerOnline = false;
   bool get listenerOnline => _listenerOnline;
   set listenerOnline(bool value) => _listenerOnline = value;
-
-  // Placeholder connect() method
-  Future<bool> connect() async {
-    // Implement actual connection logic as needed
-    // For now, just simulate a successful connection
-    await Future.delayed(Duration(milliseconds: 100));
-    return true;
-  }
 
   /// Set listener online/offline and update presence
   Future<void> setListenerOnline(bool online) async {
@@ -286,8 +299,9 @@ class SocketService {
       if (connected && _socket != null && _socket!.connected) {
         final userId = await _storage.getUserId();
         if (userId != null) {
-          print('[LISTENER] Explicitly emitting user:online for userId: $userId');
-          _socket!.emit('user:online', { 'userId': userId });
+          print('[LISTENER] Explicitly emitting user:join and listener:join for userId: $userId');
+          _socket!.emit('user:join', userId);
+          _socket!.emit('listener:join', userId);
         }
       }
     }
@@ -324,16 +338,17 @@ class SocketService {
   void initiateCall({
     required String callId,
     required String listenerId,
-    String? callerName,
+    required String callerName,
     String? callerAvatar,
     String? topic,
     String? language,
     String? gender,
     int? age,
   }) {
-    print('Socket: Initiating call to listenerId: $listenerId, callId: $callId');
+    _log('Initiating call $callId to $listenerId');
     _socket?.emit('call:initiate', {
       'callId': callId,
+      'callerId': _currentUserId, // Add callerId
       'listenerId': listenerId,
       'callerName': callerName,
       'callerAvatar': callerAvatar,
@@ -341,14 +356,21 @@ class SocketService {
       'language': language,
       'gender': gender,
       'age': age,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+  }
+
+  void emitCallJoined({required String callId, String? otherUserId}) {
+    _log('Emitting call:joined for $callId');
+    _socket?.emit('call:joined', {
+      'callId': callId,
+      'otherUserId': otherUserId,
     });
   }
 
   /// Accept an incoming call
-  void acceptCall({
-    required String callId,
-    required String callerId,
-  }) {
+  void acceptCall({required String callId, required String callerId}) {
+    _log('Accepting call $callId from $callerId');
     _socket?.emit('call:accept', {
       'callId': callId,
       'callerId': callerId,
@@ -356,10 +378,8 @@ class SocketService {
   }
 
   /// Reject an incoming call
-  void rejectCall({
-    required String callId,
-    required String callerId,
-  }) {
+  void rejectCall({required String callId, required String callerId}) {
+    _log('Rejecting call $callId from $callerId');
     _socket?.emit('call:reject', {
       'callId': callId,
       'callerId': callerId,
@@ -367,13 +387,12 @@ class SocketService {
   }
 
   /// End a call
-  void endCall({
-    required String callId,
-    required String otherUserId,
-  }) {
+  void endCall({required String callId, String? otherUserId, String? reason}) {
+    _log('Ending call $callId');
     _socket?.emit('call:end', {
       'callId': callId,
       'otherUserId': otherUserId,
+      'reason': reason ?? 'user_ended',
     });
   }
 
