@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api.js';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, CheckCircle, XCircle, Loader2, AlertCircle, Sun, Moon, Chrome } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, CheckCircle, XCircle, Loader2, AlertCircle, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
 const AdminLogin = () => {
@@ -96,6 +96,40 @@ const AdminLogin = () => {
       setLoginMode('reset');
     } catch (err) {
       setMessage('Failed to send reset code. Please try again.');
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!resetCode || resetCode.trim().length < 4) {
+      setMessage('Please enter a valid reset code');
+      setMessageType('error');
+      return;
+    }
+    if (!validatePassword(newPassword)) {
+      setMessage('Password must be at least 6 characters');
+      setMessageType('error');
+      return;
+    }
+
+    setLoading(true);
+    setMessage('');
+    try {
+      await api.post('/admin/reset-password', {
+        email: resetEmail,
+        code: resetCode,
+        newPassword,
+      });
+      setMessage('Password reset successful. Please sign in.');
+      setMessageType('success');
+      setLoginMode('login');
+      setResetCode('');
+      setNewPassword('');
+    } catch (err) {
+      setMessage('Failed to reset password. Please try again.');
       setMessageType('error');
     } finally {
       setLoading(false);
