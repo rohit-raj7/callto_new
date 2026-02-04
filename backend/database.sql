@@ -8,7 +8,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ============================================
 -- USERS TABLE
 -- ============================================
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     phone_number VARCHAR(15) UNIQUE,
     email VARCHAR(255) UNIQUE,
@@ -39,7 +39,7 @@ CREATE TABLE users (
 -- ============================================
 -- LISTENERS/EXPERTS TABLE
 -- ============================================
-CREATE TABLE listeners (
+CREATE TABLE IF NOT EXISTS listeners (
     listener_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
     original_name VARCHAR(100), -- Real name (private)
@@ -73,7 +73,7 @@ CREATE TABLE listeners (
 -- ============================================
 -- OTP VERIFICATION TABLE
 -- ============================================
-CREATE TABLE otp_verification (
+CREATE TABLE IF NOT EXISTS otp_verification (
     otp_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     phone_number VARCHAR(15) NOT NULL,
     otp_code VARCHAR(6) NOT NULL,
@@ -88,7 +88,7 @@ CREATE INDEX idx_otp_phone ON otp_verification(phone_number, is_verified);
 -- ============================================
 -- LANGUAGE PREFERENCES TABLE
 -- ============================================
-CREATE TABLE user_languages (
+CREATE TABLE IF NOT EXISTS user_languages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
     language VARCHAR(50) NOT NULL,
@@ -99,7 +99,7 @@ CREATE TABLE user_languages (
 -- ============================================
 -- CALLS TABLE
 -- ============================================
-CREATE TABLE calls (
+CREATE TABLE IF NOT EXISTS calls (
     call_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     caller_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
     listener_id UUID REFERENCES listeners(listener_id) ON DELETE SET NULL,
@@ -121,7 +121,7 @@ CREATE INDEX idx_calls_listener ON calls(listener_id, created_at DESC);
 -- ============================================
 -- CHATS TABLE
 -- ============================================
-CREATE TABLE chats (
+CREATE TABLE IF NOT EXISTS chats (
     chat_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user1_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
     user2_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
@@ -138,7 +138,7 @@ CREATE INDEX idx_chats_users ON chats(user1_id, user2_id);
 -- ============================================
 -- MESSAGES TABLE
 -- ============================================
-CREATE TABLE messages (
+CREATE TABLE IF NOT EXISTS messages (
     message_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     chat_id UUID REFERENCES chats(chat_id) ON DELETE CASCADE,
     sender_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
@@ -156,7 +156,7 @@ CREATE INDEX idx_messages_chat ON messages(chat_id, created_at DESC);
 -- ============================================
 -- RATINGS & REVIEWS TABLE
 -- ============================================
-CREATE TABLE ratings (
+CREATE TABLE IF NOT EXISTS ratings (
     rating_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     call_id UUID REFERENCES calls(call_id) ON DELETE CASCADE,
     listener_id UUID REFERENCES listeners(listener_id) ON DELETE CASCADE,
@@ -172,7 +172,7 @@ CREATE INDEX idx_ratings_listener ON ratings(listener_id);
 -- ============================================
 -- TRANSACTIONS/WALLET TABLE
 -- ============================================
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
     transaction_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
     transaction_type VARCHAR(20) CHECK (transaction_type IN ('credit', 'debit', 'refund', 'withdrawal')),
@@ -192,7 +192,7 @@ CREATE INDEX idx_transactions_user ON transactions(user_id, created_at DESC);
 -- ============================================
 -- USER WALLET TABLE
 -- ============================================
-CREATE TABLE wallets (
+CREATE TABLE IF NOT EXISTS wallets (
     wallet_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
     balance DECIMAL(10, 2) DEFAULT 0.0,
@@ -203,7 +203,7 @@ CREATE TABLE wallets (
 -- ============================================
 -- LISTENER PAYMENT DETAILS TABLE
 -- ============================================
-CREATE TABLE listener_payment_details (
+CREATE TABLE IF NOT EXISTS listener_payment_details (
     payment_detail_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     listener_id UUID UNIQUE REFERENCES listeners(listener_id) ON DELETE CASCADE,
     payment_method VARCHAR(20) CHECK (payment_method IN ('upi', 'bank')),
@@ -228,7 +228,7 @@ CREATE TABLE listener_payment_details (
 -- ============================================
 -- FAVORITES/BOOKMARKS TABLE
 -- ============================================
-CREATE TABLE favorites (
+CREATE TABLE IF NOT EXISTS favorites (
     favorite_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
     listener_id UUID REFERENCES listeners(listener_id) ON DELETE CASCADE,
@@ -239,7 +239,7 @@ CREATE TABLE favorites (
 -- ============================================
 -- BLOCKED USERS TABLE
 -- ============================================
-CREATE TABLE blocked_users (
+CREATE TABLE IF NOT EXISTS blocked_users (
     block_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     blocker_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
     blocked_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
@@ -251,7 +251,7 @@ CREATE TABLE blocked_users (
 -- ============================================
 -- REPORTS TABLE
 -- ============================================
-CREATE TABLE reports (
+CREATE TABLE IF NOT EXISTS reports (
     report_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     reporter_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
     reported_user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
@@ -264,7 +264,7 @@ CREATE TABLE reports (
 -- ============================================
 -- NOTIFICATIONS TABLE
 -- ============================================
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     notification_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
@@ -281,7 +281,7 @@ CREATE INDEX idx_notifications_user ON notifications(user_id, is_read, created_a
 -- ============================================
 -- LISTENER AVAILABILITY TABLE
 -- ============================================
-CREATE TABLE listener_availability (
+CREATE TABLE IF NOT EXISTS listener_availability (
     availability_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     listener_id UUID REFERENCES listeners(listener_id) ON DELETE CASCADE,
     day_of_week INTEGER CHECK (day_of_week >= 0 AND day_of_week <= 6), -- 0 = Sunday
@@ -386,7 +386,7 @@ WHERE account_type = 'listener';
 -- ============================================
 -- ADMINS TABLE
 -- ============================================
-CREATE TABLE admins (
+CREATE TABLE IF NOT EXISTS admins (
     admin_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
