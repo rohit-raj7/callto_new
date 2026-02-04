@@ -2,7 +2,11 @@ import 'package:flutter/foundation.dart';
 
 class ApiConfig {
   static final String baseUrl = kDebugMode
-      ? 'http://localhost:3001'
+      ? (kIsWeb 
+          ? 'http://localhost:3002' 
+          : (defaultTargetPlatform == TargetPlatform.android 
+              ? 'http://10.0.2.2:3002' 
+              : 'http://localhost:3002'))
       : 'https://callto-4.onrender.com';
 
   // static final String baseUrl = 'https://callto-4.onrender.com';
