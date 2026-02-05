@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Home, Users, Headphones, ArrowRight, Hash } from 'lucide-react';
+import { Search, Home, Users, Headphones, ArrowRight, Hash, Contact, Bell } from 'lucide-react';
 import Fuse from 'fuse.js';
 
 const CommandPalette = ({ onClose }) => {
@@ -10,13 +10,15 @@ const CommandPalette = ({ onClose }) => {
   const inputRef = useRef(null);
 
   const items = [
-    { id: 1, type: 'page', title: 'Dashboard', icon: Home, path: '/admin/dashboard', keywords: ['home', 'overview'] },
-    { id: 2, type: 'page', title: 'Users Management', icon: Users, path: '/admin/users', keywords: ['users', 'customers'] },
-    { id: 3, type: 'page', title: 'Listeners Management', icon: Headphones, path: '/admin/listeners', keywords: ['listeners', 'agents'] },
-    { id: 4, type: 'action', title: 'Toggle Dark Mode', icon: Hash, action: 'theme', keywords: ['dark', 'light', 'theme'] },
-    { id: 5, type: 'user', title: 'John Doe', subtitle: 'john@example.com', path: '/admin/users', keywords: ['john'] },
-    { id: 6, type: 'user', title: 'Sarah Smith', subtitle: 'sarah@example.com', path: '/admin/users', keywords: ['sarah'] },
-    { id: 7, type: 'listener', title: 'Mike Johnson', subtitle: 'Professional Listener', path: '/admin/listeners', keywords: ['mike'] },
+    { id: 1, type: 'page', title: 'Dashboard', icon: Home, path: '/admin-no-all-call/dashboard', keywords: ['home', 'overview'] },
+    { id: 2, type: 'page', title: 'Users Management', icon: Users, path: '/admin-no-all-call/users', keywords: ['users', 'customers'] },
+    { id: 3, type: 'page', title: 'Listeners Management', icon: Headphones, path: '/admin-no-all-call/listeners', keywords: ['listeners', 'agents'] },
+    { id: 4, type: 'page', title: 'User Contacts', icon: Contact, path: '/admin-no-all-call/user-contacts', keywords: ['contacts', 'support'] },
+    { id: 5, type: 'page', title: 'Send Notification', icon: Bell, path: '/admin-no-all-call/send-notification', keywords: ['notification', 'push', 'alert'] },
+    { id: 6, type: 'action', title: 'Toggle Dark Mode', icon: Hash, action: 'theme', keywords: ['dark', 'light', 'theme'] },
+    { id: 7, type: 'user', title: 'John Doe', subtitle: 'john@example.com', path: '/admin-no-all-call/users', keywords: ['john'] },
+    { id: 8, type: 'user', title: 'Sarah Smith', subtitle: 'sarah@example.com', path: '/admin-no-all-call/users', keywords: ['sarah'] },
+    { id: 9, type: 'listener', title: 'Mike Johnson', subtitle: 'Professional Listener', path: '/admin-no-all-call/listeners', keywords: ['mike'] },
   ];
 
   const fuse = new Fuse(items, {
@@ -25,6 +27,16 @@ const CommandPalette = ({ onClose }) => {
   });
 
   const results = query ? fuse.search(query).map(r => r.item) : items.slice(0, 5);
+
+  const handleSelect = React.useCallback((item) => {
+    if (item.path) {
+      navigate(item.path);
+    } else if (item.action === 'theme') {
+      // Toggle theme action
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', ctrlKey: true }));
+    }
+    onClose();
+  }, [navigate, onClose]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -48,17 +60,7 @@ const CommandPalette = ({ onClose }) => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selected, results, onClose]);
-
-  const handleSelect = (item) => {
-    if (item.path) {
-      navigate(item.path);
-    } else if (item.action === 'theme') {
-      // Toggle theme action
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', ctrlKey: true }));
-    }
-    onClose();
-  };
+  }, [selected, results, onClose, handleSelect]);
 
   return (
     <>

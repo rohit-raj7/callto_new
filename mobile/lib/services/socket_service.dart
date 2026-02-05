@@ -30,11 +30,13 @@ class IncomingCall {
   });
 
   factory IncomingCall.fromJson(Map<String, dynamic> json) {
+    final avatarUrl = json['caller_avatar'] ?? json['callerAvatar'];
+    print('[IncomingCall] Parsing call - callerName: ${json['caller_name'] ?? json['callerName']}, callerAvatar: $avatarUrl');
     return IncomingCall(
       callId: json['call_id']?.toString() ?? json['callId']?.toString() ?? '',
       callerId: json['caller_id']?.toString() ?? json['callerId']?.toString() ?? '',
       callerName: json['caller_name'] ?? json['callerName'] ?? 'Unknown',
-      callerAvatar: json['caller_avatar'] ?? json['callerAvatar'],
+      callerAvatar: avatarUrl,
       topic: json['topic'],
       language: json['language'] ?? 'English',
       gender: json['gender'],

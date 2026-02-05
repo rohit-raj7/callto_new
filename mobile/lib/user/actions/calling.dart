@@ -137,7 +137,7 @@ class _CallingState extends State<Calling> with WidgetsBindingObserver, TickerPr
     // Emit socket event to notify listener
     final targetUserId = widget.listenerId;
     if (targetUserId != null && _callId != null) {
-      print('User: Emitting call initiation to listener: $targetUserId');
+      print('User: Emitting call initiation to listener: $targetUserId, callerAvatar: ${widget.userAvatar}');
       _socketService.initiateCall(
         callId: _callId!,
         listenerId: targetUserId,

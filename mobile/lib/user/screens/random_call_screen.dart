@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../actions/calling.dart';
 import '../../services/socket_service.dart';
@@ -14,12 +15,48 @@ class RandomCallScreen extends StatefulWidget {
   State<RandomCallScreen> createState() => _RandomCallScreenState();
 }
 
-class _RandomCallScreenState extends State<RandomCallScreen> {
+class _RandomCallScreenState extends State<RandomCallScreen> with TickerProviderStateMixin {
   bool isSearching = false;
   Map<String, String>? matchedUser;
   final SocketService _socketService = SocketService();
   final StorageService _storage = StorageService();
   final ListenerService _listenerService = ListenerService();
+
+  late AnimationController _pulseController;
+  late AnimationController _orbitController;
+  
+  // Female profile avatars for the visual effect
+  final List<String> _dummyAvatars = [
+    'assets/images/female_profile/avatar2.jpg',
+    'assets/images/female_profile/avatar3.jpg',
+    'assets/images/female_profile/avatar4.jpg',
+    'assets/images/female_profile/avatar5.jpg',
+    'assets/images/female_profile/avatar6.jpg',
+    'assets/images/female_profile/avatar7.jpg',
+    'assets/images/female_profile/avatar8.jpg',
+    'assets/images/female_profile/avatar9.jpg',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+
+    _orbitController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _orbitController.dispose();
+    super.dispose();
+  }
 
   void findRandomPerson() async {
     setState(() {
@@ -27,13 +64,60 @@ class _RandomCallScreenState extends State<RandomCallScreen> {
       matchedUser = null;
     });
 
+    // Minimum search animation time for better UX
+    final minSearchTime = Future.delayed(const Duration(seconds: 2));
+    
     try {
-      final result = await _listenerService.getListeners(isOnline: true, limit: 20);
+      // Ensure socket is connected to get real-time online status
+      await _socketService.connect();
       
-      if (result.success && result.listeners.isNotEmpty) {
-        final listeners = result.listeners;
-        listeners.shuffle();
-        final randomListener = listeners.first;
+      int maxRetries = 3;
+      int retryCount = 0;
+      List<model.Listener> onlineListeners = [];
+      
+      // Retry logic to find online listeners
+      while (retryCount < maxRetries && onlineListeners.isEmpty) {
+        // Fetch listeners marked as online from API
+        final result = await _listenerService.getListeners(
+          isOnline: true, 
+          limit: 50,  // Fetch more to increase chances
+        );
+        
+        if (result.success && result.listeners.isNotEmpty) {
+          // Get real-time online status from socket
+          final socketOnlineMap = _socketService.listenerOnlineMap;
+          
+          // Filter listeners who are confirmed online via socket
+          onlineListeners = result.listeners.where((listener) {
+            // Check if listener is online in socket map
+            // If socket map is empty, trust the API response
+            if (socketOnlineMap.isEmpty) {
+              return true;
+            }
+            return socketOnlineMap[listener.userId] == true;
+          }).toList();
+          
+          // If no socket-confirmed online listeners, use API result
+          if (onlineListeners.isEmpty && result.listeners.isNotEmpty) {
+            onlineListeners = result.listeners;
+          }
+        }
+        
+        if (onlineListeners.isEmpty) {
+          retryCount++;
+          if (retryCount < maxRetries) {
+            await Future.delayed(const Duration(milliseconds: 500));
+          }
+        }
+      }
+      
+      // Wait for minimum search time
+      await minSearchTime;
+      
+      if (onlineListeners.isNotEmpty) {
+        // Shuffle and pick random listener
+        onlineListeners.shuffle();
+        final randomListener = onlineListeners.first;
         
         setState(() {
           isSearching = false;
@@ -43,26 +127,38 @@ class _RandomCallScreenState extends State<RandomCallScreen> {
             'name': randomListener.professionalName ?? 'Unknown',
             'city': randomListener.city ?? 'Unknown',
             'topic': randomListener.specialties.isNotEmpty ? randomListener.specialties.first : 'General',
-            'image': randomListener.avatarUrl ?? 'assets/images/khushi.jpg',
+            'image': randomListener.avatarUrl ?? 'assets/images/female_profile/avatar2.jpg',
           };
         });
       } else {
-        await Future.delayed(const Duration(seconds: 2));
         setState(() {
           isSearching = false;
           matchedUser = null;
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No listeners online right now. Please try again later.')),
+            const SnackBar(
+              content: Text('No listeners online right now. Please try again later.'),
+              backgroundColor: Colors.orange,
+            ),
           );
         }
       }
     } catch (e) {
       print('Error finding random listener: $e');
+      await minSearchTime;
       setState(() {
         isSearching = false;
+        matchedUser = null;
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to find listener: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -138,16 +234,27 @@ class _RandomCallScreenState extends State<RandomCallScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final padding = MediaQuery.of(context).padding;
+    
     return Scaffold(
       extendBodyBehindAppBar: true,
+      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          "Random Call",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          "Random Match",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 0.5),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -155,23 +262,25 @@ class _RandomCallScreenState extends State<RandomCallScreen> {
       ),
       body: Container(
         width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF121220), Color(0xFF1A1A2E), Color(0xFF16213E)],
+            colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF312E81)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
-              child: isSearching
-                  ? _searchingView()
-                  : matchedUser != null
-                      ? _matchedCard(matchedUser!)
-                      : _idleView(),
-            ),
+          bottom: true,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            switchInCurve: Curves.easeOutBack,
+            switchOutCurve: Curves.easeIn,
+            child: isSearching
+                ? _orbitSearchingView(size)
+                : matchedUser != null
+                    ? _matchedCard(matchedUser!, size)
+                    : _idleView(size),
           ),
         ),
       ),
@@ -179,71 +288,293 @@ class _RandomCallScreenState extends State<RandomCallScreen> {
   }
 
   /// ---------------- Idle View ----------------
-  Widget _idleView() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  Colors.pinkAccent.withOpacity(0.2),
-                  Colors.purpleAccent.withOpacity(0.1),
+  Widget _idleView(Size size) {
+    // Responsive sizes based on screen
+    final circleSize = size.width * 0.4;
+    final maxCircleSize = circleSize > 180 ? 180.0 : circleSize;
+    final iconSize = maxCircleSize * 0.44;
+    
+    return SingleChildScrollView(
+      key: const ValueKey('idle'),
+      physics: const BouncingScrollPhysics(),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: size.height - MediaQuery.of(context).padding.top - kToolbarHeight - MediaQuery.of(context).padding.bottom,
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: size.width * 0.06,
+            vertical: size.height * 0.02,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(height: size.height * 0.05),
+              // Pulsing Radar Effect
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Outer glow rings
+                  AnimatedBuilder(
+                    animation: _pulseController,
+                    builder: (context, child) {
+                      return Container(
+                        width: maxCircleSize * 1.55 + (_pulseController.value * 40),
+                        height: maxCircleSize * 1.55 + (_pulseController.value * 40),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.pinkAccent.withOpacity(0.1 - (_pulseController.value * 0.1)),
+                            width: 1,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  AnimatedBuilder(
+                    animation: _pulseController,
+                    builder: (context, child) {
+                      return Container(
+                        width: maxCircleSize * 1.22 + (_pulseController.value * 30),
+                        height: maxCircleSize * 1.22 + (_pulseController.value * 30),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.pinkAccent.withOpacity(0.05),
+                        ),
+                      );
+                    },
+                  ),
+                  // Main Circle
+                  Container(
+                    width: maxCircleSize,
+                    height: maxCircleSize,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFEC4899), Color(0xFF8B5CF6)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.pinkAccent.withOpacity(0.4),
+                          blurRadius: 30,
+                          spreadRadius: 5,
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.person_search_rounded,
+                      size: iconSize,
+                      color: Colors.white,
+                    ),
+                  ),
                 ],
               ),
-            ),
-            child: const Icon(
-              Icons.people_alt_rounded,
-              size: 80,
-              color: Colors.pinkAccent,
-            ),
+              SizedBox(height: size.height * 0.04),
+              Text(
+                "Find Your Match",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: size.width * 0.065,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              SizedBox(height: size.height * 0.015),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
+                child: Text(
+                  "Connect instantly with a verified listener for a random voice conversation.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: size.width * 0.038,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              SizedBox(height: size.height * 0.05),
+              // Start Matching Button
+              Container(
+                height: size.height * 0.065,
+                width: double.infinity,
+                constraints: const BoxConstraints(maxHeight: 56, minHeight: 48),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFEC4899), Color(0xFF8B5CF6)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFEC4899).withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: findRandomPerson,
+                    borderRadius: BorderRadius.circular(28),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.mic, color: Colors.white, size: size.width * 0.055),
+                        SizedBox(width: size.width * 0.02),
+                        Text(
+                          "Start Matching",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: size.width * 0.04,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: size.height * 0.03),
+            ],
           ),
-          const SizedBox(height: 32),
-          const Text(
-            "Connect with someone instantly",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              height: 1.3,
-            ),
+        ),
+      ),
+    );
+  }
+
+  /// ---------------- Orbit/Radar Searching View ----------------
+  Widget _orbitSearchingView(Size size) {
+    final baseRadius = size.width * 0.2;
+    final avatarRadius = size.width * 0.045;
+    
+    return SizedBox(
+      key: const ValueKey('searching'),
+      width: double.infinity,
+      height: double.infinity,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Background Radar Circles
+          ...List.generate(4, (index) {
+            final double radarSize = (baseRadius * 1.5) + (index * baseRadius * 0.8);
+            return Container(
+              width: radarSize,
+              height: radarSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.05),
+                  width: 1,
+                ),
+              ),
+            );
+          }),
+
+          // Orbiting Avatars
+          AnimatedBuilder(
+            animation: _orbitController,
+            builder: (context, child) {
+              return Stack(
+                alignment: Alignment.center,
+                children: _dummyAvatars.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final imagePath = entry.value;
+                  
+                  // Calculate different orbit paths - responsive
+                  final double radius = baseRadius + ((index % 3) * baseRadius * 0.6);
+                  final double speed = 1.0 + ((index % 3) * 0.5);
+                  final bool clockwise = index % 2 == 0;
+                  
+                  final double initialAngle = (index * (2 * math.pi / _dummyAvatars.length));
+                  final double currentAngle = initialAngle + 
+                      (_orbitController.value * 2 * math.pi * speed * (clockwise ? 1 : -1));
+
+                  return Transform.translate(
+                    offset: Offset(
+                      math.cos(currentAngle) * radius,
+                      math.sin(currentAngle) * radius,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.pinkAccent.withOpacity(0.3),
+                            blurRadius: 10,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: avatarRadius,
+                        backgroundImage: AssetImage(imagePath),
+                        backgroundColor: Colors.grey[800],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
           ),
-          const SizedBox(height: 12),
-          const Text(
-            "Random voice call based on your interests",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white60,
-              fontSize: 15,
-              height: 1.4,
+
+          // Center Glowing Core
+          Container(
+            width: size.width * 0.15,
+            height: size.width * 0.15,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.pinkAccent.withOpacity(0.2),
+                  blurRadius: 20,
+                  spreadRadius: 5,
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 48),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.pinkAccent,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 18),
-              elevation: 8,
-              shadowColor: Colors.pinkAccent.withOpacity(0.4),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
+            child: Center(
+              child: Container(
+                width: size.width * 0.025,
+                height: size.width * 0.025,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.pinkAccent.withOpacity(0.8),
+                ),
               ),
             ),
-            onPressed: findRandomPerson,
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
+          ),
+
+          // Bottom Text
+          Positioned(
+            bottom: size.height * 0.12,
+            left: size.width * 0.05,
+            right: size.width * 0.05,
+            child: Column(
               children: [
-                Icon(Icons.search, size: 22),
-                SizedBox(width: 12),
                 Text(
-                  "Find Someone",
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                  "Finding available listeners...",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: size.width * 0.045,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                SizedBox(height: size.height * 0.01),
+                Text(
+                  "Scanning online profiles",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.5),
+                    fontSize: size.width * 0.035,
+                  ),
                 ),
               ],
             ),
@@ -253,231 +584,185 @@ class _RandomCallScreenState extends State<RandomCallScreen> {
     );
   }
 
-  /// ---------------- Searching View ----------------
-  Widget _searchingView() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [
-                Colors.pinkAccent.withOpacity(0.2),
-                Colors.purpleAccent.withOpacity(0.1),
-              ],
-            ),
-          ),
-          child: const CircularProgressIndicator(
-            color: Colors.pinkAccent,
-            strokeWidth: 4,
-          ),
-        ),
-        const SizedBox(height: 32),
-        const Text(
-          "Searching for a match...",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          "This may take a few seconds",
-          style: TextStyle(
-            color: Colors.white60,
-            fontSize: 14,
-          ),
-        ),
-      ],
-    );
-  }
-
   /// ---------------- Matched User Card ----------------
-  Widget _matchedCard(Map<String, String> user) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        width: double.infinity,
-        constraints: const BoxConstraints(maxWidth: 400),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E1E2E),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
+  Widget _matchedCard(Map<String, String> user, Size size) {
+    final avatarRadius = size.width * 0.13;
+    final maxAvatarRadius = avatarRadius > 60 ? 60.0 : avatarRadius;
+    
+    return SingleChildScrollView(
+      key: const ValueKey('matched'),
+      physics: const BouncingScrollPhysics(),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: size.width * 0.05,
+          vertical: size.height * 0.02,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 32),
-            // Success badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.green.withOpacity(0.3)),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(size.width * 0.05),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.5),
+                blurRadius: 40,
+                offset: const Offset(0, 20),
               ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.check_circle, color: Colors.green, size: 16),
-                  SizedBox(width: 8),
-                  Text(
-                    "Match Found",
-                    style: TextStyle(
-                      color: Colors.green,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Success Badge
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: size.width * 0.04,
+                  vertical: size.height * 0.01,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.green.withOpacity(0.5)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: size.width * 0.04),
+                    SizedBox(width: size.width * 0.02),
+                    Text(
+                      "Match Found!",
+                      style: TextStyle(
+                        color: Colors.greenAccent,
+                        fontWeight: FontWeight.bold,
+                        fontSize: size.width * 0.035,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Avatar
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.pinkAccent.withOpacity(0.3),
-                    Colors.purpleAccent.withOpacity(0.2),
                   ],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.pinkAccent.withOpacity(0.3),
-                    blurRadius: 20,
-                    spreadRadius: 2,
+              ),
+              SizedBox(height: size.height * 0.025),
+              
+              // Avatar with Glow
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFEC4899), Color(0xFF8B5CF6)],
                   ),
-                ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.pinkAccent.withOpacity(0.5),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: maxAvatarRadius,
+                  backgroundImage: AssetImage(user['image']!),
+                  backgroundColor: Colors.grey[800],
+                ),
               ),
-              padding: const EdgeInsets.all(4),
-              child: CircleAvatar(
-                radius: 64,
-                backgroundImage: AssetImage(user['image']!),
-              ),
-            ),
-            const SizedBox(height: 20),
-            // Name
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
+              SizedBox(height: size.height * 0.02),
+              
+              // User Details
+              Text(
                 user['name']!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
-                  fontSize: 26,
+                  fontSize: size.width * 0.06,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            // Location
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.location_on, color: Colors.white60, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  user['city']!,
-                  style: const TextStyle(
-                    color: Colors.white60,
-                    fontSize: 14,
+              SizedBox(height: size.height * 0.008),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.location_on, color: Colors.white.withOpacity(0.6), size: size.width * 0.04),
+                  SizedBox(width: size.width * 0.01),
+                  Text(
+                    user['city']!,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: size.width * 0.038,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: size.height * 0.02),
+              
+              // Tags
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: size.width * 0.04,
+                  vertical: size.height * 0.01,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.topic_rounded, color: const Color(0xFF8B5CF6), size: size.width * 0.045),
+                    SizedBox(width: size.width * 0.02),
+                    Text(
+                      user['topic']!,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: size.width * 0.035,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: size.height * 0.03),
+              
+              // Actions
+              SizedBox(
+                width: double.infinity,
+                height: size.height * 0.06,
+                child: ElevatedButton(
+                  onPressed: () => startCall(user),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF22C55E),
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: size.height * 0.015),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 4,
+                    shadowColor: Colors.green.withOpacity(0.4),
+                  ),
+                  child: Text(
+                    "Start Call Now",
+                    style: TextStyle(
+                      fontSize: size.width * 0.042,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            // Topic chip
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.pinkAccent.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.pinkAccent.withOpacity(0.3)),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.psychology, color: Colors.pinkAccent, size: 18),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      user['topic']!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.pinkAccent,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
+              SizedBox(height: size.height * 0.012),
+              TextButton(
+                onPressed: findRandomPerson,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: size.height * 0.01),
+                  foregroundColor: Colors.white70,
+                ),
+                child: Text(
+                  "Find Another Match",
+                  style: TextStyle(fontSize: size.width * 0.038),
+                ),
               ),
-            ),
-            const SizedBox(height: 32),
-            // Buttons
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4CAF50),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        elevation: 4,
-                        shadowColor: Colors.green.withOpacity(0.4),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      onPressed: () => startCall(user),
-                      icon: const Icon(Icons.call, size: 22),
-                      label: const Text(
-                        "Start Call",
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
-                      onPressed: findRandomPerson,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: const Text(
-                        "Find Another Person",
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
+            ],
+          ),
         ),
       ),
     );

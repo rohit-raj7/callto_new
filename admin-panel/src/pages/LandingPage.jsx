@@ -261,84 +261,77 @@ const LandingPage = () => {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="grid md:grid-cols-3 gap-12 lg:gap-16 relative"
+            className="grid md:grid-cols-3 gap-8 lg:gap-12 relative max-w-6xl mx-auto pt-16"
           >
-            {/* Connecting Line with Arrow (Desktop) */}
-            <div className="hidden md:block absolute top-32 left-[16.666%] right-[16.666%] h-0.5 bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 transform -translate-y-1/2">
-              <div className="absolute right-0 top-1/2 transform translate-x-1 -translate-y-1/2 w-0 h-0 border-l-8 border-l-indigo-400 border-t-4 border-t-transparent border-b-4 border-b-transparent" />
-            </div>
+            {/* Connecting Line (Desktop) */}
+            <div className="hidden md:block absolute top-16 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-pink-200 via-purple-200 to-indigo-200 dark:from-pink-900 dark:via-purple-900 dark:to-indigo-900 opacity-60" />
 
             {[
               {
-                step: 1,
+                step: '01',
                 icon: UserCheck,
-                title: 'Create Your Account',
-                description: 'Sign up with Google or Facebook and complete your profile with your interests and preferences',
+                title: 'Create Account',
+                description: 'Sign up securely with your preferred method and customize your profile preferences.',
                 details: ['Quick 2-minute setup', 'Secure authentication', 'Personalized profile']
               },
               {
-                step: 2,
+                step: '02',
                 icon: Headphones,
-                title: 'Choose Your Listener',
-                description: 'Browse expert listeners by topics like Confidence, Marriage, Relationships, or try our random call feature',
-                details: ['100+ verified listeners', 'Filter by expertise', 'View ratings & reviews']
+                title: 'Choose Listener',
+                description: 'Browse verified experts by topic or use our smart matching to find the perfect listener.',
+                details: ['100+ verified experts', 'Topic-based filtering', 'Real user reviews']
               },
               {
-                step: 3,
+                step: '03',
                 icon: Phone,
                 title: 'Connect & Talk',
-                description: 'Start a voice call or text chat with your chosen listener. Pay per minute for personalized support',
-                details: ['Voice or text chat', 'Flexible pricing', 'Complete privacy']
+                description: 'Start a private voice call or chat instantly. Pay only for the time you talk.',
+                details: ['Crystal clear audio', 'Pay-per-minute', '100% Private']
               }
             ].map((step, index) => (
               <motion.div
                 key={index}
                 variants={fadeInUp}
-                className="relative group"
+                className="relative z-10"
               >
-                <div className="bg-white dark:bg-gray-800 p-10 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 relative z-10 border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-700 h-full">
-                  {/* Step Number Badge */}
-                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2">
-                    <div className="relative">
-                      <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-2xl group-hover:scale-110 transition-transform duration-300">
-                        {step.step}
+                <div className="bg-white dark:bg-gray-800 rounded-[2rem] p-8 shadow-xl shadow-gray-200/40 dark:shadow-none border border-gray-100 dark:border-gray-700 h-full group transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:border-pink-100 dark:hover:border-pink-900/30">
+                  {/* Floating Gradient Step Badge */}
+                  <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
+                    <div className="relative group-hover:scale-110 transition-transform duration-300">
+                      <div className="w-24 h-24 rounded-full bg-white dark:bg-gray-800 p-2 shadow-xl ring-1 ring-gray-100 dark:ring-gray-700">
+                        <div className="w-full h-full rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-inner">
+                          {step.step}
+                        </div>
                       </div>
-                      <div className="absolute inset-0 bg-gradient-to-br from-indigo-400 to-pink-400 rounded-full blur-md opacity-50 group-hover:opacity-75 transition-opacity" />
+                      {/* Glow Effect behind badge */}
+                      <div className="absolute inset-0 bg-pink-500/20 rounded-full blur-xl -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     </div>
                   </div>
 
-                  <div className="mt-12 text-center">
-                    {/* Icon Container */}
-                    <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-900/40 dark:via-purple-900/40 dark:to-pink-900/40 rounded-3xl mb-6 group-hover:scale-105 transition-transform duration-300 shadow-inner">
-                      <step.icon className="w-12 h-12 text-indigo-600 dark:text-indigo-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-300" strokeWidth={2} />
+                  <div className="mt-14 text-center">
+                    {/* Icon with soft background */}
+                    <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20 rounded-2xl mb-6 text-pink-600 dark:text-pink-400 group-hover:scale-105 transition-transform duration-300 shadow-sm">
+                      <step.icon className="w-10 h-10" strokeWidth={1.5} />
                     </div>
                     
-                    {/* Title */}
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-300">
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 tracking-tight">
                       {step.title}
                     </h3>
                     
-                    {/* Description */}
-                    <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-6 text-base">
+                    <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-8 text-[15px]">
                       {step.description}
                     </p>
 
-                    {/* Details List */}
-                    <div className="space-y-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    {/* Refined Details List */}
+                    <div className="bg-gray-50/80 dark:bg-gray-700/30 rounded-2xl p-5 space-y-3 text-left border border-gray-100 dark:border-gray-600/50">
                       {step.details.map((detail, idx) => (
-                        <div key={idx} className="flex items-center justify-center text-sm text-gray-700 dark:text-gray-300">
-                          <svg className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                          </svg>
+                        <div key={idx} className="flex items-start text-[14px] text-gray-700 dark:text-gray-300">
+                          <CheckCircle2 className="w-5 h-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
                           <span className="font-medium">{detail}</span>
                         </div>
                       ))}
                     </div>
                   </div>
-
-                  {/* Decorative Corner Element */}
-                  <div className="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-indigo-200 dark:border-indigo-700 rounded-tr-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-pink-200 dark:border-pink-700 rounded-bl-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </div>
               </motion.div>
             ))}
@@ -401,54 +394,124 @@ const LandingPage = () => {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="grid md:grid-cols-2 gap-12 items-center"
+            className="grid md:grid-cols-2 gap-12 items-start"
           >
-            <motion.div variants={fadeInUp}>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                Our Mission
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
-                Callto is a revolutionary platform that connects individuals with expert listeners who provide personalized support through voice calls and text chats. Whether you're seeking advice on relationships, career guidance, personal development, or just need someone to listen, our verified experts are here to help.
-              </p>
-              <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                We believe that everyone deserves access to meaningful conversations and professional guidance. Our platform makes it easy to find the right listener for your needs, with transparent pricing and a focus on quality connections.
-              </p>
+            <motion.div variants={fadeInUp} className="space-y-8">
+              <div className="space-y-6">
+                <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
+                  Who We Are
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-lg">
+                  Callto is a safe space to talk freely where your identity stays anonymous. We connect you with empathetic listeners who understand and support you when you're feeling low or just need someone to listen.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className="w-2 h-2 rounded-full bg-orange-500" />
+                      <span className="font-bold text-gray-900 dark:text-white text-sm">Age Restricted</span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Strictly 18+ platform for adults only</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className="w-2 h-2 rounded-full bg-red-500" />
+                      <span className="font-bold text-gray-900 dark:text-white text-sm">Not Dating</span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Purely for social connection & support</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                      <span className="font-bold text-gray-900 dark:text-white text-sm">Secure Wallet</span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Transparent billing & transactions</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className="w-2 h-2 rounded-full bg-pink-500" />
+                      <span className="font-bold text-gray-900 dark:text-white text-sm">Voice Verified</span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Make money using Voice</p>
+                  </div>
+                </div>
+                <div className="mt-4 bg-gray-50 dark:bg-gray-700/30 p-6 rounded-2xl border border-gray-100 dark:border-gray-600">
+                  <h4 className="font-bold text-lg text-gray-900 dark:text-white mb-2">Become a Host</h4>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                    Join our community of listeners. Answer calls and earn up to <span className="font-bold text-pink-600">₹10,000 every week!</span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 px-3 py-1 rounded-full text-xs font-medium">Voice Verification</span>
+                    <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-full text-xs font-medium">Weekly Payouts</span>
+                    <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-xs font-medium">Flexible Hours</span>
+                  </div>
+                </div>
+                <div className="mt-4 bg-gray-50 dark:bg-gray-700/30 p-6 rounded-2xl border border-gray-100 dark:border-gray-600">
+                  <h4 className="font-bold text-lg text-gray-900 dark:text-white mb-2">Find Support</h4>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                    Connect with empathetic listeners in a safe, anonymous space. Get support for life challenges, career advice, and relationships.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 px-3 py-1 rounded-full text-xs font-medium">Anonymous Chat</span>
+                    <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-full text-xs font-medium">24/7 Support</span>
+                    <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-xs font-medium">Topic-Based Matching</span>
+                  </div>
+                </div>
+              </div>
             </motion.div>
 
             <motion.div variants={fadeInUp} className="space-y-6">
-              <div className="bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 p-6 rounded-2xl">
-                <div className="flex items-center space-x-4">
-                  <div className="bg-gradient-to-r from-pink-500 to-rose-500 w-12 h-12 rounded-xl flex items-center justify-center">
-                    <Users className="w-6 h-6 text-white" />
+              <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow group">
+                <div className="flex items-start space-x-4">
+                  <div className="bg-pink-100 dark:bg-pink-900/30 p-3 rounded-xl group-hover:bg-pink-200 dark:group-hover:bg-pink-900/50 transition-colors">
+                    <Shield className="w-6 h-6 text-pink-600 dark:text-pink-400" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white">Expert Community</h4>
-                    <p className="text-gray-600 dark:text-gray-400">Verified listeners across multiple specialties</p>
+                    <h4 className="font-bold text-lg text-gray-900 dark:text-white mb-2">Safe & Secure</h4>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                      Every call is safe and secure. No abuse. No misbehavior. We actively maintain a respectful space for everyone.
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 p-6 rounded-2xl">
-                <div className="flex items-center space-x-4">
-                  <div className="bg-gradient-to-r from-pink-500 to-rose-500 w-12 h-12 rounded-xl flex items-center justify-center">
-                    <Shield className="w-6 h-6 text-white" />
+              <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow group">
+                <div className="flex items-start space-x-4">
+                  <div className="bg-purple-100 dark:bg-purple-900/30 p-3 rounded-xl group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors">
+                    <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white">Safe & Private</h4>
-                    <p className="text-gray-600 dark:text-gray-400">Your conversations are completely confidential</p>
+                    <h4 className="font-bold text-lg text-gray-900 dark:text-white mb-2">Empathetic Listeners</h4>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                      Connect with empathetic listeners who understand and support you. Whether you're feeling low or need advice, we're here.
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 p-6 rounded-2xl">
-                <div className="flex items-center space-x-4">
-                  <div className="bg-gradient-to-r from-pink-500 to-rose-500 w-12 h-12 rounded-xl flex items-center justify-center">
-                    <Heart className="w-6 h-6 text-white" />
+              <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow group">
+                <div className="flex items-start space-x-4">
+                  <div className="bg-indigo-100 dark:bg-indigo-900/30 p-3 rounded-xl group-hover:bg-indigo-200 dark:group-hover:bg-indigo-900/50 transition-colors">
+                    <Lock className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white">Meaningful Connections</h4>
-                    <p className="text-gray-600 dark:text-gray-400">Building real relationships through authentic conversations</p>
+                    <h4 className="font-bold text-lg text-gray-900 dark:text-white mb-2">Private & Anonymous</h4>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                      Your name & face are always private. Your identity stays anonymous, creating a safe space to talk freely without judgment.
+                    </p>
                   </div>
+                </div>
+              </div>
+
+              {/* Support Contact Mini-Card */}
+              <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700/50 p-4 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Need Help?</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">support@callto.in</p>
+                </div>
+                <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-4" />
+                <div>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Grievance Officer</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">Available 24/7</p>
                 </div>
               </div>
             </motion.div>

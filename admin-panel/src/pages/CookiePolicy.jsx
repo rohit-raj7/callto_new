@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Cookie, Settings, BarChart3, Shield, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
@@ -21,7 +22,7 @@ const CookiePolicy = () => {
             animate={{ opacity: 1, y: 0 }}
             className="text-center"
           >
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl mb-6 shadow-xl">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl mb-6 shadow-xl shadow-pink-200 dark:shadow-none">
               <Cookie className="w-10 h-10 text-white" strokeWidth={2.5} />
             </div>
             <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-4">
@@ -44,13 +45,13 @@ const CookiePolicy = () => {
             {/* Important Notice */}
             <motion.div
               variants={fadeInUp}
-              className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-l-4 border-blue-500 p-4 rounded-lg"
+              className="bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 border-l-4 border-pink-500 p-4 rounded-lg"
             >
               <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-1" />
+                <AlertTriangle className="w-5 h-5 text-pink-600 dark:text-pink-400 flex-shrink-0 mt-1" />
                 <div>
-                  <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">Cookie Consent</h3>
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <h3 className="font-semibold text-pink-900 dark:text-pink-100 mb-1">Cookie Consent</h3>
+                  <p className="text-sm text-pink-800 dark:text-pink-200">
                     By using Callto, you consent to the use of cookies in accordance with this policy. You can manage your cookie preferences in your account settings.
                   </p>
                 </div>
@@ -60,7 +61,7 @@ const CookiePolicy = () => {
             {/* 1. What Are Cookies */}
             <motion.section
               variants={fadeInUp}
-              className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-gray-700"
+              className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-gray-700 hover:border-pink-200 dark:hover:border-pink-800 transition-colors"
             >
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
                 1. What Are Cookies?
@@ -114,15 +115,15 @@ const CookiePolicy = () => {
                 </div>
 
                 {/* Functional Cookies */}
-                <div className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <div className="border border-pink-200 dark:border-pink-800 bg-pink-50 dark:bg-pink-900/20 rounded-lg p-4">
                   <div className="flex items-start gap-3">
-                    <Settings className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                    <Settings className="w-5 h-5 text-pink-600 dark:text-pink-400 flex-shrink-0 mt-0.5" />
                     <div>
-                      <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Functional Cookies</h3>
-                      <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
+                      <h3 className="font-semibold text-pink-900 dark:text-pink-100 mb-2">Functional Cookies</h3>
+                      <p className="text-sm text-pink-800 dark:text-pink-200 mb-2">
                         Enhance your experience and remember your preferences.
                       </p>
-                      <ul className="space-y-1 text-sm text-blue-700 dark:text-blue-300">
+                      <ul className="space-y-1 text-sm text-pink-700 dark:text-pink-300">
                         <li>• Language and region settings</li>
                         <li>• Theme preferences (light/dark mode)</li>
                         <li>• Notification preferences</li>
@@ -152,15 +153,15 @@ const CookiePolicy = () => {
                 </div>
 
                 {/* Third-Party Cookies */}
-                <div className="border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
+                <div className="border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20 rounded-lg p-4">
                   <div className="flex items-start gap-3">
-                    <Shield className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+                    <Shield className="w-5 h-5 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
                     <div>
-                      <h3 className="font-semibold text-orange-900 dark:text-orange-100 mb-2">Third-Party Cookies</h3>
-                      <p className="text-sm text-orange-800 dark:text-orange-200 mb-2">
+                      <h3 className="font-semibold text-rose-900 dark:text-rose-100 mb-2">Third-Party Cookies</h3>
+                      <p className="text-sm text-rose-800 dark:text-rose-200 mb-2">
                         Used by trusted partners for payment processing, communication, and infrastructure.
                       </p>
-                      <ul className="space-y-1 text-sm text-orange-700 dark:text-orange-300">
+                      <ul className="space-y-1 text-sm text-rose-700 dark:text-rose-300">
                         <li>• Payment gateway cookies (Stripe, Razorpay)</li>
                         <li>• Communication service cookies (Twilio, Agora)</li>
                         <li>• Cloud infrastructure cookies (AWS, GCP)</li>
@@ -175,16 +176,16 @@ const CookiePolicy = () => {
             {/* 3. Call-Specific Cookies */}
             <motion.section
               variants={fadeInUp}
-              className="bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 rounded-xl p-5 shadow-sm border border-pink-200 dark:border-pink-800"
+              className="bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20 rounded-xl p-5 shadow-sm border border-purple-200 dark:border-purple-800"
             >
-              <h2 className="text-xl font-bold text-pink-900 dark:text-pink-100 mb-3">
+              <h2 className="text-xl font-bold text-purple-900 dark:text-purple-100 mb-3">
                 3. Call-Specific Cookies
               </h2>
-              <p className="text-pink-800 dark:text-pink-200 leading-relaxed text-sm mb-4">
+              <p className="text-purple-800 dark:text-purple-200 leading-relaxed text-sm mb-4">
                 Our calling platform uses specialized cookies to ensure smooth voice communication:
               </p>
               <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-pink-200 dark:border-pink-700">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-purple-200 dark:border-purple-700">
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Session Management</h4>
                   <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                     <li>• Call authentication tokens</li>
@@ -193,7 +194,7 @@ const CookiePolicy = () => {
                     <li>• Bandwidth optimization</li>
                   </ul>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-pink-200 dark:border-pink-700">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-purple-200 dark:border-purple-700">
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Quality Assurance</h4>
                   <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                     <li>• Connection stability metrics</li>
@@ -313,26 +314,26 @@ const CookiePolicy = () => {
             {/* 8. Contact Information */}
             <motion.section
               variants={fadeInUp}
-              className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-5 shadow-sm border border-blue-200 dark:border-blue-800"
+              className="bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 rounded-xl p-5 shadow-sm border border-pink-200 dark:border-pink-800"
             >
-              <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-3">
+              <h2 className="text-xl font-bold text-pink-900 dark:text-pink-100 mb-3">
                 8. Contact Us About Cookies
               </h2>
-              <p className="text-blue-800 dark:text-blue-200 leading-relaxed text-sm mb-4">
+              <p className="text-pink-800 dark:text-pink-200 leading-relaxed text-sm mb-4">
                 Have questions about our cookie usage or need help managing your preferences?
               </p>
               <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-pink-200 dark:border-pink-700">
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Cookie Support</h4>
                   <p className="text-sm text-gray-700 dark:text-gray-300">
-                    <strong>Email:</strong> cookies@callto.com<br />
+                    <strong>Email:</strong> cookies@callto.in<br />
                     <strong>Response Time:</strong> 2-3 business days
                   </p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-pink-200 dark:border-pink-700">
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Privacy Team</h4>
                   <p className="text-sm text-gray-700 dark:text-gray-300">
-                    <strong>Email:</strong> privacy@callto.com<br />
+                    <strong>Email:</strong> privacy@callto.in<br />
                     <strong>Support:</strong> Available 24/7 in-app
                   </p>
                 </div>
@@ -342,19 +343,19 @@ const CookiePolicy = () => {
             {/* Cookie Settings CTA */}
             <motion.section
               variants={fadeInUp}
-              className="bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl p-5 shadow-lg text-white text-center"
+              className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl p-5 shadow-lg text-white text-center"
             >
               <Cookie className="w-12 h-12 mx-auto mb-3" />
               <h3 className="text-lg font-bold mb-2">
                 Manage Your Cookie Preferences
               </h3>
-              <p className="text-blue-100 leading-relaxed text-sm max-w-2xl mx-auto mb-4">
+              <p className="text-pink-100 leading-relaxed text-sm max-w-2xl mx-auto mb-4">
                 Take control of your privacy. Update your cookie settings anytime through your account preferences.
               </p>
-              <button className="bg-white text-blue-600 px-6 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-colors">
+              <button className="bg-white text-pink-600 px-6 py-2 rounded-lg font-semibold hover:bg-pink-50 transition-colors">
                 Open Cookie Settings
               </button>
-              <div className="mt-4 text-xs text-blue-100">
+              <div className="mt-4 text-xs text-pink-100">
                 <p>Cookie Policy Version 1.2 - India</p>
               </div>
             </motion.section>

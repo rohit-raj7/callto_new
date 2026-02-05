@@ -349,6 +349,19 @@ class _CallingState extends State<Calling> with WidgetsBindingObserver, TickerPr
     super.dispose();
   }
 
+  /// Helper to get avatar image from URL (handles both assets and network URLs)
+  ImageProvider? _getAvatarImage(String? avatarUrl) {
+    if (avatarUrl == null || avatarUrl.isEmpty) return null;
+    if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
+      return NetworkImage(avatarUrl);
+    }
+    if (avatarUrl.startsWith('assets/')) {
+      return AssetImage(avatarUrl);
+    }
+    // Handle other formats if needed
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     const Color accentColor = Colors.pinkAccent;
@@ -411,10 +424,8 @@ class _CallingState extends State<Calling> with WidgetsBindingObserver, TickerPr
                               CircleAvatar(
                                 radius: 35,
                                 backgroundColor: const Color(0xFFB39DDB),
-                                backgroundImage: widget.callerAvatar != null && widget.callerAvatar!.startsWith('http')
-                                    ? NetworkImage(widget.callerAvatar!)
-                                    : null,
-                                child: widget.callerAvatar == null || !widget.callerAvatar!.startsWith('http')
+                                backgroundImage: _getAvatarImage(widget.callerAvatar),
+                                child: _getAvatarImage(widget.callerAvatar) == null
                                     ? const Icon(Icons.person, size: 40, color: Colors.white70)
                                     : null,
                               ),

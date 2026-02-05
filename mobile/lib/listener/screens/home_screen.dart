@@ -125,6 +125,71 @@ class _HomeScreenState extends State<HomeScreen>
 
   // Toggle logic removed
 
+  void _viewCallerProfile(IncomingCall call) {
+    // Show caller profile in a bottom sheet
+    final avatarImage = _getAvatarImage(call.callerAvatar);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 50,
+              backgroundColor: Colors.blue.withOpacity(0.2),
+              backgroundImage: avatarImage,
+              child: avatarImage == null
+                  ? const Icon(Icons.person, size: 50, color: Colors.blue)
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              call.callerName,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Topic: ${call.topic ?? 'General'}',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Language: ${call.language ?? 'English'}',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Helper to get avatar image from URL (handles both assets and network URLs)
+  ImageProvider? _getAvatarImage(String? avatarUrl) {
+    if (avatarUrl == null || avatarUrl.isEmpty) return null;
+    if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
+      return NetworkImage(avatarUrl);
+    }
+    if (avatarUrl.startsWith('assets/')) {
+      return AssetImage(avatarUrl);
+    }
+    // Handle other formats if needed
+    return null;
+  }
+
   void _acceptCall(IncomingCall call) async {
     // Navigate to Calling screen with call details
     if (!mounted) return;
@@ -290,39 +355,38 @@ class _HomeScreenState extends State<HomeScreen>
       child: Column(
         children: [
           ListTile(
-            leading: Stack(
-              alignment: Alignment.center,
-              children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: isOnline ? Colors.green.withOpacity(0.2) : Colors.grey.withOpacity(0.2),
-                  backgroundImage: call.callerAvatar != null && call.callerAvatar!.startsWith('http')
-                      ? NetworkImage(call.callerAvatar!)
-                      : null,
-                  child: call.callerAvatar == null || !call.callerAvatar!.startsWith('http')
-                      ? Icon(Icons.person, size: 28, color: isOnline ? Colors.green : Colors.grey)
-                      : null,
-                ),
-                if (isOnline)
-                  Positioned(
-                    bottom: 2,
-                    right: 2,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.green.withOpacity(0.5),
-                            blurRadius: 6,
-                          ),
-                        ],
+            leading: GestureDetector(
+              onTap: () => _viewCallerProfile(call),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: isOnline ? Colors.blue.withOpacity(0.2) : Colors.grey.withOpacity(0.2),
+                    backgroundImage: _getAvatarImage(call.callerAvatar),
+                    child: _getAvatarImage(call.callerAvatar) == null
+                        ? Icon(Icons.person, size: 28, color: isOnline ? Colors.blue : Colors.grey)
+                        : null,
+                  ),
+                  if (isOnline)
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.visibility,
+                          size: 14,
+                          color: Colors.blue,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
             title: Text(
               call.callerName,
@@ -392,15 +456,15 @@ class _HomeScreenState extends State<HomeScreen>
                           const SnackBar(content: Text('Listener is offline'), backgroundColor: Colors.grey),
                         );
                       },
-                      icon: Icon(Icons.visibility, size: 20),
+                      icon: Icon(Icons.call, size: 20),
                       label: const Text(
-                        'Read',
+                        'Ans Call',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: isOnline ? Colors.pinkAccent : Colors.grey,
+                        backgroundColor: isOnline ? const Color(0xFF4CAF50) : Colors.grey,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
