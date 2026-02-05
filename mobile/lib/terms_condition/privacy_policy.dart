@@ -40,12 +40,17 @@ class PrivacyPolicyPage extends StatelessWidget {
                       height: 80,
                       width: 80,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(color: Colors.white30, width: 2),
                       ),
-                      child: const Icon(Icons.security_rounded,
-                          color: Colors.white, size: 40),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Image.asset(
+                          'assets/login/logo.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     const Text(

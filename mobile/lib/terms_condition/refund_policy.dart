@@ -11,6 +11,10 @@ class RefundPolicyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final width = MediaQuery.of(context).size.width;
+    final isCompact = width < 360;
+    final isSmall = width < 420;
+    final textScale = isCompact ? 0.92 : 1.0;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : backgroundPink,
@@ -18,7 +22,7 @@ class RefundPolicyScreen extends StatelessWidget {
         slivers: [
           // Hero Section
           SliverAppBar(
-            expandedHeight: 240,
+            expandedHeight: isSmall ? 210 : 240,
             pinned: true,
             backgroundColor: isDark ? const Color(0xFF1E293B) : primaryPink,
             flexibleSpace: FlexibleSpaceBar(
@@ -37,22 +41,27 @@ class RefundPolicyScreen extends StatelessWidget {
                   children: [
                     const SizedBox(height: 40),
                     Container(
-                      height: 80,
-                      width: 80,
+                      height: isSmall ? 68 : 80,
+                      width: isSmall ? 68 : 80,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(24),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(isSmall ? 20 : 24),
                         border: Border.all(color: Colors.white30, width: 2),
                       ),
-                      child: const Icon(Icons.account_balance_wallet_rounded,
-                          color: Colors.white, size: 40),
+                      child: Padding(
+                        padding: EdgeInsets.all(isSmall ? 10 : 12),
+                        child: Image.asset(
+                          'assets/login/logo.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       "Refund Policy",
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 28,
+                        fontSize: isSmall ? 24 : 28,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
                       ),
@@ -62,7 +71,7 @@ class RefundPolicyScreen extends StatelessWidget {
                       "Last Updated: February 05, 2026",
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.8),
-                        fontSize: 12,
+                        fontSize: isSmall ? 11 : 12,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -79,7 +88,10 @@ class RefundPolicyScreen extends StatelessWidget {
           /// CONTENT
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.symmetric(
+                horizontal: isSmall ? 16 : 20,
+                vertical: 20,
+              ),
               child: Column(
                 children: [
                   _infoBanner(
@@ -87,6 +99,8 @@ class RefundPolicyScreen extends StatelessWidget {
                     title: "Important Notice",
                     content: "Please read our refund terms carefully. By using CallTo, you agree to these policies regarding transactions and service fees.",
                     color: Colors.orange,
+                    textScale: textScale,
+                    isCompact: isCompact,
                   ),
 
                   _dangerSection(
@@ -97,16 +111,21 @@ class RefundPolicyScreen extends StatelessWidget {
                       "Chat consultations once the session begins.",
                       "Any digital service that has been partially or fully delivered.",
                     ],
+                    textScale: textScale,
+                    isCompact: isCompact,
                   ),
 
                   _section(
                     title: "2. Technical Failures",
-                    body: "We understand that technology can sometimes fail. Refunds may be considered only in cases of severe technical failure on our platform's side.",
+                    body: "We understand that technology can sometimes fail. Refunds may be considered only when a platform-side technical failure prevents delivery.",
                     bullets: const [
                       "Call could not connect due to system error.",
                       "Audio completely inaudible due to platform glitch.",
                       "Consultant was unreachable despite being shown as online.",
+                      "Report the issue within 24 hours with your order details.",
                     ],
+                    textScale: textScale,
+                    isCompact: isCompact,
                   ),
 
                   _section(
@@ -117,12 +136,16 @@ class RefundPolicyScreen extends StatelessWidget {
                       "No refunds for device or hardware issues (mic, speaker, etc.).",
                       "No refunds if you provide incorrect information during registration.",
                     ],
+                    textScale: textScale,
+                    isCompact: isCompact,
                   ),
 
                   _section(
                     title: "4. Dissatisfaction Policy",
                     body: "CallTo facilitates communication and entertainment. We do not guarantee the accuracy, quality, or outcome of any conversation.",
                     warning: "Dissatisfaction with a consultant's style, tone, advice, or emotional outcome is NOT a valid ground for a refund.",
+                    textScale: textScale,
+                    isCompact: isCompact,
                   ),
 
                   _section(
@@ -132,7 +155,10 @@ class RefundPolicyScreen extends StatelessWidget {
                       "Payment gateway transaction fees.",
                       "Applicable government taxes and GST.",
                       "Operational processing charges.",
+                      "Promotional credits or coupons already applied.",
                     ],
+                    textScale: textScale,
+                    isCompact: isCompact,
                   ),
 
                   _dangerSection(
@@ -143,25 +169,31 @@ class RefundPolicyScreen extends StatelessWidget {
                       "Wallet balances cannot be withdrawn to a bank account or UPI.",
                       "Wallet credits can be used for any future services on CallTo.",
                     ],
+                    textScale: textScale,
+                    isCompact: isCompact,
                   ),
 
                   _section(
                     title: "7. Processing Time",
                     body: "Refund requests are subject to a quality audit. Our team will review call logs and system data to verify the claim.",
                     bullets: const [
-                      "Audit and review may take up to 72 hours.",
+                      "Audit and review may take up to 72 hours (3 business days).",
                       "You will be notified of the decision via email or app notification.",
                     ],
+                    textScale: textScale,
+                    isCompact: isCompact,
                   ),
 
                   _section(
                     title: "8. Order Cancellations by CallTo",
                     body: "If CallTo cancels a paid order or service due to internal reasons, a full refund of the amount paid will be credited to your wallet.",
+                    textScale: textScale,
+                    isCompact: isCompact,
                   ),
 
-                  _contactSection(),
+                  _contactSection(textScale: textScale, isCompact: isCompact),
 
-                  _finalDecisionSection(),
+                  _finalDecisionSection(textScale: textScale, isCompact: isCompact),
 
                   const SizedBox(height: 40),
                 ],
@@ -180,16 +212,18 @@ class RefundPolicyScreen extends StatelessWidget {
     String? body,
     List<String>? bullets,
     String? warning,
+    double textScale = 1.0,
+    bool isCompact = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: EdgeInsets.symmetric(vertical: isCompact ? 12 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 20,
+            style: TextStyle(
+              fontSize: 20 * textScale,
               fontWeight: FontWeight.bold,
               color: textDark,
             ),
@@ -199,7 +233,7 @@ class RefundPolicyScreen extends StatelessWidget {
             Text(
               body,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 14 * textScale,
                 color: Colors.grey.shade800,
                 height: 1.5,
               ),
@@ -208,7 +242,7 @@ class RefundPolicyScreen extends StatelessWidget {
           if (bullets != null) ...[
             const SizedBox(height: 12),
             ...bullets.map((e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8, left: 4),
+                  padding: EdgeInsets.only(bottom: isCompact ? 6 : 8, left: 4),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -221,7 +255,7 @@ class RefundPolicyScreen extends StatelessWidget {
                         child: Text(
                           e,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 14 * textScale,
                             color: Colors.grey.shade700,
                             height: 1.4,
                           ),
@@ -250,7 +284,7 @@ class RefundPolicyScreen extends StatelessWidget {
                     child: Text(
                       warning,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 13 * textScale,
                         color: Colors.red.shade900,
                         fontWeight: FontWeight.w500,
                       ),
@@ -268,10 +302,12 @@ class RefundPolicyScreen extends StatelessWidget {
     required String title,
     required String body,
     required List<String> bullets,
+    double textScale = 1.0,
+    bool isCompact = false,
   }) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.symmetric(vertical: isCompact ? 12 : 16),
+      padding: EdgeInsets.all(isCompact ? 14 : 16),
       decoration: BoxDecoration(
         color: Colors.red.shade50,
         borderRadius: BorderRadius.circular(16),
@@ -281,15 +317,18 @@ class RefundPolicyScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(Icons.error_outline_rounded, color: Colors.redAccent),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.redAccent,
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 18 * textScale,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.redAccent,
+                  ),
                 ),
               ),
             ],
@@ -297,11 +336,11 @@ class RefundPolicyScreen extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             body,
-            style: TextStyle(fontSize: 14, color: Colors.red.shade900),
+            style: TextStyle(fontSize: 14 * textScale, color: Colors.red.shade900),
           ),
           const SizedBox(height: 12),
           ...bullets.map((e) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
+                padding: EdgeInsets.only(bottom: isCompact ? 4 : 6),
                 child: Row(
                   children: [
                     const Icon(Icons.close_rounded, size: 16, color: Colors.redAccent),
@@ -309,7 +348,7 @@ class RefundPolicyScreen extends StatelessWidget {
                     Expanded(
                       child: Text(
                         e,
-                        style: TextStyle(fontSize: 13, color: Colors.red.shade800),
+                        style: TextStyle(fontSize: 13 * textScale, color: Colors.red.shade800),
                       ),
                     ),
                   ],
@@ -325,10 +364,12 @@ class RefundPolicyScreen extends StatelessWidget {
     required String title,
     required String content,
     required Color color,
+    double textScale = 1.0,
+    bool isCompact = false,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.only(bottom: isCompact ? 12 : 16),
+      padding: EdgeInsets.all(isCompact ? 14 : 16),
       decoration: BoxDecoration(
         color: color.withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
@@ -337,14 +378,14 @@ class RefundPolicyScreen extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(isCompact ? 8 : 10),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Icon(icon, color: color, size: isCompact ? 20 : 24),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: isCompact ? 12 : 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,7 +394,7 @@ class RefundPolicyScreen extends StatelessWidget {
                   title,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontSize: 14 * textScale,
                     color: color.withOpacity(0.9),
                   ),
                 ),
@@ -361,7 +402,7 @@ class RefundPolicyScreen extends StatelessWidget {
                 Text(
                   content,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 13 * textScale,
                     color: Colors.grey.shade700,
                     height: 1.4,
                   ),
@@ -374,7 +415,7 @@ class RefundPolicyScreen extends StatelessWidget {
     );
   }
 
-  Widget _contactSection() {
+  Widget _contactSection({double textScale = 1.0, bool isCompact = false}) {
     return _section(
       title: "9. Contact Support",
       body: "If you believe you are eligible for a refund or have payment issues, please contact our billing team:",
@@ -383,13 +424,15 @@ class RefundPolicyScreen extends StatelessWidget {
         "Subject: Refund Request - [Your Account ID]",
         "Phone: +91 7061588507",
       ],
+      textScale: textScale,
+      isCompact: isCompact,
     );
   }
 
-  Widget _finalDecisionSection() {
+  Widget _finalDecisionSection({double textScale = 1.0, bool isCompact = false}) {
     return Container(
-      margin: const EdgeInsets.only(top: 24),
-      padding: const EdgeInsets.all(24),
+      margin: EdgeInsets.only(top: isCompact ? 20 : 24),
+      padding: EdgeInsets.all(isCompact ? 18 : 24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [primaryPink, Color(0xFFF06292)],
@@ -406,24 +449,24 @@ class RefundPolicyScreen extends StatelessWidget {
         ],
       ),
       child: Column(
-        children: const [
-          Icon(Icons.gavel_rounded, size: 56, color: Colors.white),
-          SizedBox(height: 16),
+        children: [
+          Icon(Icons.gavel_rounded, size: isCompact ? 46 : 56, color: Colors.white),
+          SizedBox(height: isCompact ? 12 : 16),
           Text(
             "Final Decision",
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 22 * textScale,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
-          SizedBox(height: 10),
+          SizedBox(height: isCompact ? 8 : 10),
           Text(
             "All refund decisions made by the CallTo management team are final and non-negotiable.",
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white,
-              fontSize: 14,
+              fontSize: 14 * textScale,
               height: 1.5,
             ),
           ),
