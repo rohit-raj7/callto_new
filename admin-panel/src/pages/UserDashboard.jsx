@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
   Phone, MessageCircle, Clock, Shuffle,
-  Wallet, Star, Users, PhoneCall
+  Wallet, Star, Users, PhoneCall, Headphones
 } from 'lucide-react';
 import UserDashboardLayout from '../components/UserDashboardLayout';
 import ProfileCard from '../components/ProfileCard';

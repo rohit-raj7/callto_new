@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Filter, SlidersHorizontal, MapPin, Calendar, Heart,
@@ -87,7 +87,6 @@ const mockUsers = [
 
 const DiscoveryPage = () => {
   const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState('compatibility');
@@ -108,7 +107,6 @@ const DiscoveryPage = () => {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1500));
       setUsers(mockUsers);
-      setFilteredUsers(mockUsers);
       setLoading(false);
     };
 
@@ -116,7 +114,7 @@ const DiscoveryPage = () => {
   }, []);
 
   // Apply filters and sorting
-  useEffect(() => {
+  const filteredUsers = useMemo(() => {
     let filtered = [...users];
 
     // Apply filters
@@ -172,7 +170,7 @@ const DiscoveryPage = () => {
       }
     });
 
-    setFilteredUsers(filtered);
+    return filtered;
   }, [users, filters, sortBy, sortOrder]);
 
   const handleConnect = (user) => {
@@ -194,15 +192,6 @@ const DiscoveryPage = () => {
 
   const updateFilter = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-  };
-
-  const toggleSort = (field) => {
-    if (sortBy === field) {
-      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('desc');
-    }
   };
 
   return (

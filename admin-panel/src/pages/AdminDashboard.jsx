@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getUsers, getAdminListeners } from '../services/api';
 import { 
   Users, Headphones, Activity, Star, UserPlus, Bell, Download, TrendingUp, 
@@ -33,8 +33,6 @@ const AdminDashboard = () => {
     systemHealth: 'healthy',
     lastUpdated: new Date()
   });
-  const [users, setUsers] = useState([]);
-  const [listeners, setListeners] = useState([]);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   const fetchStats = useCallback(async () => {
@@ -43,9 +41,6 @@ const AdminDashboard = () => {
       const [usersRes, listenersRes] = await Promise.all([getUsers(), getAdminListeners()]);
       const usersData = usersRes.data || [];
       const listenersData = listenersRes.data?.listeners || [];
-
-      setUsers(usersData);
-      setListeners(listenersData);
 
       const totalUsers = usersData.length;
       const totalListeners = listenersData.length;

@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, HelpCircle, Phone, MessageCircle, Wallet, Shield, User } from 'lucide-react';
 import UserDashboardLayout from '../components/UserDashboardLayout';
 
+const MotionDiv = motion.div;
+
 const FAQs = () => {
   const [openItems, setOpenItems] = useState({});
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -133,7 +135,7 @@ const FAQs = () => {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="max-w-4xl mx-auto px-4 py-8">
           {/* Header */}
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-center mb-8"
@@ -147,10 +149,10 @@ const FAQs = () => {
             <p className="text-xl text-gray-600 dark:text-gray-300">
               Find answers to common questions about Callto
             </p>
-          </motion.div>
+          </MotionDiv>
 
           {/* Category Filter */}
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
@@ -172,17 +174,17 @@ const FAQs = () => {
                 </button>
               ))}
             </div>
-          </motion.div>
+          </MotionDiv>
 
           {/* FAQ Items */}
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
             className="space-y-4"
           >
             {filteredFaqs.map((faq, index) => (
-              <motion.div
+              <MotionDiv
                 key={index}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -196,17 +198,17 @@ const FAQs = () => {
                   <span className="text-lg font-semibold text-gray-900 dark:text-white pr-4">
                     {faq.question}
                   </span>
-                  <motion.div
+                  <MotionDiv
                     animate={{ rotate: openItems[index] ? 180 : 0 }}
                     transition={{ duration: 0.2 }}
                   >
                     <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />
-                  </motion.div>
+                  </MotionDiv>
                 </button>
 
                 <AnimatePresence>
                   {openItems[index] && (
-                    <motion.div
+                    <MotionDiv
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
@@ -218,15 +220,15 @@ const FAQs = () => {
                           {faq.answer}
                         </p>
                       </div>
-                    </motion.div>
+                    </MotionDiv>
                   )}
                 </AnimatePresence>
-              </motion.div>
+              </MotionDiv>
             ))}
-          </motion.div>
+          </MotionDiv>
 
           {/* Contact Support */}
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
@@ -249,7 +251,7 @@ const FAQs = () => {
                 </button>
               </div>
             </div>
-          </motion.div>
+          </MotionDiv>
         </div>
       </div>
     </UserDashboardLayout>

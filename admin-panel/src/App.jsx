@@ -12,6 +12,7 @@ import UserContactInfo from './pages/UserContactInfo';
 import ListenersManagement from './pages/ListenersManagement';
 import ListenerDetails from './pages/ListenerDetails';
 import ListenerProfile from './pages/ListenerProfile';
+import SendNotification from './pages/SendNotification';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -35,11 +36,6 @@ function App() {
               <Route path="/cookie-policy" element={<CookiePolicy />} />
 
               {/* Admin Routes (with theme provider) */}
-              <Route path="/admin-no-all-call" element={
-                <ThemeProvider>
-                  <AdminLogin />
-                </ThemeProvider>
-              } />
               <Route path="/admin-no-all-call" element={
                 <ThemeProvider>
                   <AdminLogin />
@@ -86,6 +82,15 @@ function App() {
                   <PrivateRoute>
                     <Layout>
                       <ListenerDetails />
+                    </Layout>
+                  </PrivateRoute>
+                </ThemeProvider>
+              } />
+              <Route path="/admin-no-all-call/send-notification" element={
+                <ThemeProvider>
+                  <PrivateRoute>
+                    <Layout>
+                      <SendNotification />
                     </Layout>
                   </PrivateRoute>
                 </ThemeProvider>
