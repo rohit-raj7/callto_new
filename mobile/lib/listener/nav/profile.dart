@@ -160,6 +160,8 @@ class _ProfilePageState extends State<ProfilePage> {
         }
 
         final listener = _listener!;
+        final isMobile = MediaQuery.of(context).size.width < 420;
+        final avatarRadius = isMobile ? 34.0 : 40.0;
 
         return Scaffold(
           backgroundColor: Colors.white,
@@ -282,7 +284,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         child: CircleAvatar(
                           key: ValueKey(listener.avatarUrl),
-                          radius: 40,
+                          radius: avatarRadius,
                           backgroundImage: avatarProvider(listener.avatarUrl),
                         ),
                       ),
@@ -293,8 +295,8 @@ class _ProfilePageState extends State<ProfilePage> {
                           children: [
                             Text(
                               listener.professionalName ?? 'Priya Rani',
-                              style: const TextStyle(
-                                fontSize: 20,
+                              style: TextStyle(
+                                fontSize: isMobile ? 18 : 20,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -363,22 +365,10 @@ class _ProfilePageState extends State<ProfilePage> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                // Detect mobile screen (width < 400)
-                                final isMobile = MediaQuery.of(context).size.width < 400;
-                                
-                                // Button dimensions based on screen size
-                                final buttonPaddingH = isMobile ? 6.0 : 8.0;
-                                final buttonPaddingV = isMobile ? 6.0 : 10.0;
-                                final iconSize = isMobile ? 14.0 : 16.0;
-                                final fontSize = isMobile ? 11.0 : 13.0;
-                                final spacing = isMobile ? 2.0 : 4.0;
-                                
-                                return Row(
-                                  children: [
-                                    Expanded(
-                                      child: InkWell(
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: InkWell(
                                         onTap: () async {
                                           if (listener.listenerId.isEmpty) {
                                             await _refreshProfile();
@@ -423,46 +413,46 @@ class _ProfilePageState extends State<ProfilePage> {
                                             );
                                           }
                                         },
-                                        child: Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: buttonPaddingH,
-                                            vertical: buttonPaddingV,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(
-                                              color: Colors.pinkAccent,
-                                              width: 2,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.edit,
-                                                color: Colors.pinkAccent,
-                                                size: iconSize,
-                                              ),
-                                              SizedBox(width: spacing),
-                                              Text(
-                                                "Edit Profile",
-                                                style: TextStyle(
-                                                  color: Colors.pinkAccent,
-                                                  fontWeight: FontWeight.w500,
-                                                  fontSize: fontSize,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: isMobile ? 6 : 8,
+                                        vertical: isMobile ? 6 : 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Colors.pinkAccent,
+                                          width: 2,
                                         ),
                                       ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.edit,
+                                            color: Colors.pinkAccent,
+                                            size: isMobile ? 14 : 16,
+                                          ),
+                                          SizedBox(width: isMobile ? 2 : 4),
+                                          Text(
+                                            "Edit Profile",
+                                            style: TextStyle(
+                                              color: Colors.pinkAccent,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: isMobile ? 11 : 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    SizedBox(width: isMobile ? 4 : 8),
-                                    Expanded(
-                                      child: InkWell(
+                                  ),
+                                ),
+                                SizedBox(width: isMobile ? 6 : 8),
+                                Expanded(
+                                  child: InkWell(
                                         onTap: () {
                                           // Navigate to Earnings screen (renamed from PaymentMethodsPage)
                                           Navigator.push(
@@ -473,42 +463,40 @@ class _ProfilePageState extends State<ProfilePage> {
                                             ),
                                           );
                                         },
-                                        child: Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: buttonPaddingH,
-                                            vertical: buttonPaddingV,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.pinkAccent,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.account_balance_wallet,
+                                            color: Colors.white,
+                                            size: isMobile ? 15 : 16,
                                           ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.pinkAccent,
-                                            borderRadius: BorderRadius.circular(8),
+                                          SizedBox(width: isMobile ? 3 : 4),
+                                          Text(
+                                            "Earned",
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: isMobile ? 12 : 13,
+                                            ),
                                           ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.account_balance_wallet,
-                                                color: Colors.white,
-                                                size: iconSize,
-                                              ),
-                                              SizedBox(width: spacing),
-                                              Text(
-                                                "Earned",
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w500,
-                                                  fontSize: fontSize,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                                        ],
                                       ),
                                     ),
-                                  ],
-                                );
-                              },
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

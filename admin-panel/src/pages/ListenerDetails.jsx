@@ -5,22 +5,28 @@ import {
   ArrowLeft, Copy, Check, Mail, Phone, MapPin, Calendar,
   Star, TrendingUp, Clock, DollarSign, Headphones, Award,
   Shield, Building2, CreditCard, User, Briefcase, GraduationCap,
-  Languages, Heart, Activity, Eye, EyeOff, MessageSquare
+  Languages, Heart, Activity, Eye, EyeOff, MessageSquare, IndianRupee
 } from 'lucide-react';
 
 const ListenerDetails = () => {
   const { listener_id } = useParams();
   const navigate = useNavigate();
   const [listener, setListener] = useState(null);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copiedField, setCopiedField] = useState(null);
+
+  // Platform commission constants (30% platform, 70% listener)
+  const PLATFORM_COMMISSION_PERCENT = 30;
+  const LISTENER_SHARE_PERCENT = 70;
 
   useEffect(() => {
     const fetchListener = async () => {
       try {
         const res = await getListenerById(listener_id);
         setListener(res.data.listener);
+        setStats(res.data.stats || {});
       } catch (error) {
         setError('Failed to fetch listener details');
         console.error('Error fetching listener:', error);
@@ -153,6 +159,13 @@ const ListenerDetails = () => {
     );
   }
 
+  // Calculate earnings from stats
+  // total_earnings from backend is gross (what users paid)
+  // Listener gets 70%, platform takes 30%
+  const grossEarnings = parseFloat(stats?.total_earnings) || 0;
+  const netEarnings = parseFloat((grossEarnings * (LISTENER_SHARE_PERCENT / 100)).toFixed(2));
+  const platformFee = parseFloat((grossEarnings * (PLATFORM_COMMISSION_PERCENT / 100)).toFixed(2));
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 transition-colors">
       <div className="max-w-7xl mx-auto">
@@ -235,23 +248,23 @@ const ListenerDetails = () => {
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {listener.average_rating ? Number(listener.average_rating).toFixed(1) : 'N/A'}
+                      {stats?.average_rating ? Number(stats.average_rating).toFixed(1) : 'N/A'}
                     </div>
                     <div className="text-xs text-gray-600 dark:text-gray-400">
-                      {listener.total_ratings || 0} reviews
+                      {stats?.total_ratings || 0} reviews
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-4">
                   <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                    <DollarSign className="w-5 h-5 text-indigo-600" />
+                    <IndianRupee className="w-5 h-5 text-indigo-600" />
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {listener.rate_per_minute || 0}
+                      ₹{listener.rate_per_minute || 0}
                     </div>
                     <div className="text-xs text-gray-600 dark:text-gray-400">
-                      {listener.currency || 'USD'} per minute
+                      INR per minute
                     </div>
                   </div>
                 </div>
@@ -286,23 +299,21 @@ const ListenerDetails = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <StatCard
             icon={Headphones}
-            label="Total Calls"
-            value={listener.total_calls || 0}
+            label="Completed Calls"
+            value={parseInt(stats?.total_calls) || 0}
             color="blue"
           />
           <StatCard
             icon={Clock}
             label="Total Minutes"
-            value={listener.total_minutes || 0}
+            value={parseInt(stats?.total_minutes) || 0}
             color="indigo"
-            trend="+12%"
           />
           <StatCard
-            icon={DollarSign}
-            label="Total Earnings"
-            value={`₹${listener.total_earnings || 0}`}
+            icon={IndianRupee}
+            label="Total Earnings (Net)"
+            value={`₹${netEarnings.toFixed(2)}`}
             color="emerald"
-            trend="+8%"
           />
         </div>
 
@@ -443,6 +454,8 @@ const ListenerDetails = () => {
 
           {/* Right Column - Activity & Payment */}
           <div className="space-y-6">
+           
+             
             {/* Activity Status */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -474,6 +487,14 @@ const ListenerDetails = () => {
                     {listener.is_verified ? 'Verified' : 'Pending'}
                   </span>
                 </div>
+                {stats?.unique_callers > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Unique Callers</span>
+                    <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                      {stats.unique_callers}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

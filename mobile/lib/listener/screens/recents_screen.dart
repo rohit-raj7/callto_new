@@ -301,7 +301,7 @@ class _RecentsScreenState extends State<RecentsScreen> {
     final name = call.callerName ?? 'Unknown User';
     final avatar = call.callerAvatar ?? 'https://randomuser.me/api/portraits/lego/1.jpg';
     final status = call.status;
-    final isCompleted = status == 'completed';
+    final totalMinutes = _calculateTotalMinutes(call.durationSeconds);
 
     return InkWell(
       borderRadius: BorderRadius.circular(25),
@@ -371,9 +371,11 @@ class _RecentsScreenState extends State<RecentsScreen> {
                   children: [
                     Text(
                       name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 17,
                         color: Colors.black87,
                       ),
                     ),
@@ -385,20 +387,11 @@ class _RecentsScreenState extends State<RecentsScreen> {
                         fontSize: 13,
                       ),
                     ),
-                    Text(
-                      'Total minutes: ${_calculateTotalMinutes(call.durationSeconds)}',
-                      style: TextStyle(
-                        color: isCompleted ? Colors.green[600] : Colors.black54,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
                   ],
                 ),
               ),
 
-              /// Chat Button
-              _buildChatButton(),
+              _buildMinutesBadge(totalMinutes),
             ],
           ),
         ),
@@ -406,25 +399,34 @@ class _RecentsScreenState extends State<RecentsScreen> {
     );
   }
 
-  /// -------- Chat Button ----------
-  Widget _buildChatButton() {
-    return InkWell(
-      borderRadius: BorderRadius.circular(25),
-      onTap: () {
-        // TODO: Navigate to chat with user
-      },
-      child: Container(
-        width: 46,
-        height: 46,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.8),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.grey.withOpacity(0.3)),
-        ),
-        child: const Icon(
-          Icons.chat_bubble_outline,
-          color: Colors.black54,
-        ),
+  Widget _buildMinutesBadge(int totalMinutes) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 76),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.withOpacity(0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.timer_outlined,
+            size: 16,
+            color: Colors.grey[700],
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '$totalMinutes min',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+        ],
       ),
     );
   }
