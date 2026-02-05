@@ -4,7 +4,6 @@ import 'package:audioplayers/audioplayers.dart';
 import '../actions/calling.dart';
 import '../../services/storage_service.dart';
 import '../../services/socket_service.dart';
-import '../../services/call_service.dart';
 
 class ExpertCard extends StatefulWidget {
   final String name;
@@ -138,7 +137,7 @@ class _ExpertCardState extends State<ExpertCard> with SingleTickerProviderStateM
       });
     }
     
-    // Fetch current user data
+    // Fetch current user data (quick local storage access)
     final storage = StorageService();
     final userName = await storage.getDisplayName() ?? 'You';
     final userAvatar = await storage.getAvatarUrl();
@@ -146,54 +145,8 @@ class _ExpertCardState extends State<ExpertCard> with SingleTickerProviderStateM
     
     if (!mounted) return;
 
-    // First, create the call in the database
-    final callService = CallService();
-    final callResult = await callService.initiateCall(
-      listenerId: widget.listenerId ?? '',
-      callType: 'audio',
-    );
-
-    if (!callResult.success) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(callResult.error ?? 'Failed to initiate call')),
-        );
-      }
-      return;
-    }
-
-    final callId = callResult.call!.callId;
-
-    // Connect to socket and wait for connection
-    final socketService = SocketService();
-    final connected = await socketService.connect();
-    
-    if (!connected) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to connect. Please try again.')),
-        );
-      }
-      return;
-    }
-    
-    // Notify the listener about incoming call via socket
-    // Use listenerUserId for socket (falls back to listenerId for backwards compatibility)
+    // Navigate immediately - Calling screen will handle call creation and socket events
     final targetUserId = widget.listenerUserId ?? widget.listenerId;
-    if (targetUserId != null) {
-      print('Caller: Initiating call to listener userId: $targetUserId with callId: $callId');
-      socketService.initiateCall(
-        callId: callId,
-        listenerId: targetUserId,
-        callerName: userName,
-        callerAvatar: userAvatar,
-        topic: widget.topic,
-        language: widget.languages.isNotEmpty ? widget.languages.first : 'English',
-        gender: userGender,
-      );
-    } else {
-      print('Warning: No listener userId available for call');
-    }
     
     Navigator.push(
       context,
@@ -203,8 +156,11 @@ class _ExpertCardState extends State<ExpertCard> with SingleTickerProviderStateM
           callerAvatar: widget.imagePath,
           userName: userName,
           userAvatar: userAvatar,
-          channelName: callId,
-          listenerId: targetUserId, // Use targetUserId for socket communication
+          listenerId: targetUserId, // User ID for socket communication
+          listenerDbId: widget.listenerId, // Listener ID for database
+          topic: widget.topic,
+          language: widget.languages.isNotEmpty ? widget.languages.first : 'English',
+          gender: userGender,
         ),
       ),
     );

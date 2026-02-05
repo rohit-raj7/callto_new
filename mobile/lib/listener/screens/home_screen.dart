@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../widgets/top_bar.dart';
+import '../actions/calling.dart';
 import '../../services/listener_service.dart';
 import '../../services/socket_service.dart';
 import '../../services/incoming_call_overlay_service.dart';
 import '../../services/storage_service.dart';
+import '../../services/call_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -123,9 +125,51 @@ class _HomeScreenState extends State<HomeScreen>
 
   // Toggle logic removed
 
-  void _acceptCall(IncomingCall call) {
-    // Use overlay service to handle accept
-    _overlayService.acceptCallFromList(call);
+  void _acceptCall(IncomingCall call) async {
+    // Navigate to Calling screen with call details
+    if (!mounted) return;
+    
+    try {
+      // Update call status to ongoing
+      final callService = CallService();
+      await callService.updateCallStatus(
+        callId: call.callId,
+        status: 'ongoing',
+      );
+      
+      // Notify socket that call is accepted
+      SocketService().acceptCall(
+        callId: call.callId,
+        callerId: call.callerId,
+      );
+      
+      // Remove from incoming calls list
+      _overlayService.removeCallFromList(call.callId);
+      
+      // Navigate to Calling screen
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => Calling(
+            callerName: call.callerName,
+            callerAvatar: call.callerAvatar,
+            channelName: call.callId,
+            callId: call.callId,
+            callerId: call.callerId,
+          ),
+        ),
+      );
+    } catch (e) {
+      print('Error accepting call: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to accept call: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _rejectCall(IncomingCall call) {
@@ -348,9 +392,9 @@ class _HomeScreenState extends State<HomeScreen>
                           const SnackBar(content: Text('Listener is offline'), backgroundColor: Colors.grey),
                         );
                       },
-                      icon: Icon(Icons.call, size: 20),
+                      icon: Icon(Icons.visibility, size: 20),
                       label: const Text(
-                        'Accept',
+                        'Read',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                         ),

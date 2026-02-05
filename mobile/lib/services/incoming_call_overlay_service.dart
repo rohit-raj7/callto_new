@@ -70,8 +70,8 @@ class IncomingCallOverlayService {
       _incomingCalls.insert(0, call);
       _callsController.add(List.from(_incomingCalls));
     }
-    // Show overlay
-    _showIncomingCallOverlay(call);
+    // Overlay disabled - calls shown only in home screen list view
+    // _showIncomingCallOverlay(call);
   }
 
   /// Call this when listener goes offline to clear overlays and calls
@@ -197,6 +197,12 @@ class IncomingCallOverlayService {
   /// Reject call from list view (not overlay)
   void rejectCallFromList(IncomingCall call) {
     _rejectCall(call);
+  }
+  
+  /// Remove call from list by ID (used when handling accept/reject directly)
+  void removeCallFromList(String callId) {
+    _incomingCalls.removeWhere((c) => c.callId == callId);
+    _callsController.add(List.from(_incomingCalls));
   }
 }
 

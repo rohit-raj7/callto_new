@@ -19,6 +19,10 @@ class Calling extends StatefulWidget {
   final String? userAvatar;
   final String? channelName;
   final String? listenerId;
+  final String? listenerDbId; // The listener_id for database calls
+  final String? topic;
+  final String? language;
+  final String? gender;
 
   const Calling({
     super.key,
@@ -28,6 +32,10 @@ class Calling extends StatefulWidget {
     this.userAvatar,
     this.channelName,
     this.listenerId,
+    this.listenerDbId,
+    this.topic,
+    this.language,
+    this.gender,
   });
 
   @override
@@ -41,6 +49,7 @@ class _CallingState extends State<Calling> with WidgetsBindingObserver, TickerPr
   late final AudioRouteService _audioRoute;
   final AgoraService _agoraService = AgoraService();
   final SocketService _socketService = SocketService();
+  final CallService _callService = CallService();
   StreamSubscription? _callConnectedSubscription;
   StreamSubscription? _callEndedSubscription;
   StreamSubscription? _callRejectedSubscription;
@@ -53,6 +62,8 @@ class _CallingState extends State<Calling> with WidgetsBindingObserver, TickerPr
   String? _connectionError;
   String? _currentChannelName;
   bool _isCallEnding = false; // Prevent multiple end call triggers
+  String? _callId; // Store the call ID from database
+  bool _isCallInitiating = true; // Track call initiation status
 
   @override
   void initState() {
@@ -72,6 +83,79 @@ class _CallingState extends State<Calling> with WidgetsBindingObserver, TickerPr
     _setupSocketListeners();
     
     _initAudio();
+    
+    // If channelName is provided, call was already created (backward compatibility)
+    // Otherwise, create the call first, then init Agora
+    if (widget.channelName != null) {
+      _callId = widget.channelName;
+      _isCallInitiating = false;
+      _initAgora();
+    } else {
+      _initiateCallAndConnect();
+    }
+  }
+
+  /// Create call in database and emit socket event, then init Agora
+  Future<void> _initiateCallAndConnect() async {
+    print('User: Initiating call to listener...');
+    
+    // Connect to socket first
+    final connected = await _socketService.connect();
+    if (!connected) {
+      if (mounted) {
+        setState(() {
+          _connectionError = 'Failed to connect. Please try again.';
+          _isCallInitiating = false;
+        });
+      }
+      return;
+    }
+
+    // Create call in database
+    final callResult = await _callService.initiateCall(
+      listenerId: widget.listenerDbId ?? widget.listenerId ?? '',
+      callType: 'audio',
+    );
+
+    if (!callResult.success) {
+      if (mounted) {
+        setState(() {
+          _connectionError = callResult.error ?? 'Failed to initiate call';
+          _isCallInitiating = false;
+        });
+        _stopRingtone();
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) Navigator.pop(context);
+        });
+      }
+      return;
+    }
+
+    _callId = callResult.call!.callId;
+    print('User: Call created with ID: $_callId');
+
+    // Emit socket event to notify listener
+    final targetUserId = widget.listenerId;
+    if (targetUserId != null && _callId != null) {
+      print('User: Emitting call initiation to listener: $targetUserId');
+      _socketService.initiateCall(
+        callId: _callId!,
+        listenerId: targetUserId,
+        callerName: widget.userName,
+        callerAvatar: widget.userAvatar,
+        topic: widget.topic ?? 'General',
+        language: widget.language ?? 'English',
+        gender: widget.gender,
+      );
+    }
+
+    if (mounted) {
+      setState(() {
+        _isCallInitiating = false;
+      });
+    }
+
+    // Now initialize Agora with the call ID
     _initAgora();
   }
 
@@ -151,9 +235,10 @@ class _CallingState extends State<Calling> with WidgetsBindingObserver, TickerPr
       return;
     }
 
-    // Generate channel name if not provided
-    final channelName = widget.channelName ?? 
+    // Use callId from database, or widget.channelName for backward compatibility
+    final channelName = _callId ?? widget.channelName ?? 
         'call_${widget.listenerId ?? DateTime.now().millisecondsSinceEpoch}';
+    _currentChannelName = channelName;
     
     print('User: Joining Agora channel: $channelName');
 

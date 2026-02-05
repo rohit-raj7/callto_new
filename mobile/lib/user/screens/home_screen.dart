@@ -60,7 +60,8 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final result = await _listenerService.getListeners();
+      // Fetch all listeners (online and offline) with high limit
+      final result = await _listenerService.getListeners(limit: 100);
       if (result.success) {
         setState(() {
           _listeners = result.listeners;
