@@ -13,7 +13,6 @@ class RecentsScreen extends StatefulWidget {
 class _RecentsScreenState extends State<RecentsScreen> {
   final CallService _callService = CallService();
   
-  bool _showAll = true;
   bool _isLoading = true;
   String? _error;
   List<Call> _callHistory = [];
@@ -105,16 +104,15 @@ class _RecentsScreenState extends State<RecentsScreen> {
     }
   }
 
-  // Get filtered calls
-  List<Call> get _filteredCalls {
-    if (_showAll) return _callHistory;
-    return _callHistory.where((call) => call.status == 'missed').toList();
+  int _calculateTotalMinutes(int? durationSeconds) {
+    if (durationSeconds == null || durationSeconds <= 0) return 0;
+    return (durationSeconds / 60).ceil();
   }
 
   // Group calls by date
   Map<String, List<Call>> _groupCallsByDate() {
     final Map<String, List<Call>> grouped = {};
-    for (final call in _filteredCalls) {
+    for (final call in _callHistory) {
       final dateKey = _formatDate(call.createdAt);
       if (!grouped.containsKey(dateKey)) {
         grouped[dateKey] = [];
@@ -156,7 +154,7 @@ class _RecentsScreenState extends State<RecentsScreen> {
                             ],
                           ),
                         )
-                      : _filteredCalls.isEmpty
+                        : _callHistory.isEmpty
                           ? _buildEmptyState()
                           : RefreshIndicator(
                               onRefresh: _loadCallHistory,
@@ -177,7 +175,7 @@ class _RecentsScreenState extends State<RecentsScreen> {
           Icon(Icons.call_received, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
-            _showAll ? 'No recent calls' : 'No missed calls',
+            'No recent calls',
             style: TextStyle(
               fontSize: 18,
               color: Colors.grey.shade600,
@@ -237,30 +235,10 @@ class _RecentsScreenState extends State<RecentsScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Back + Filter Toggle
+            // Back Button
             Row(
               children: [
                 _buildBackButton(context),
-                const SizedBox(width: 8),
-                Text(
-                  _showAll ? 'All' : 'Missed',
-                  style: TextStyle(
-                    color: _showAll ? Colors.blueAccent : Colors.red,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Switch(
-                  value: _showAll,
-                  onChanged: (value) {
-                    setState(() => _showAll = value);
-                  },
-                  activeTrackColor: Colors.blue[200],
-                  activeColor: Colors.white,
-                  inactiveTrackColor: Colors.red.shade200,
-                  inactiveThumbColor: Colors.red,
-                ),
               ],
             ),
 
@@ -325,95 +303,104 @@ class _RecentsScreenState extends State<RecentsScreen> {
     final status = call.status;
     final isCompleted = status == 'completed';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFEE9F2), Color(0xFFFBEFFF)],
-        ),
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.pinkAccent.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return InkWell(
+      borderRadius: BorderRadius.circular(25),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => _CallDetailsPage(call: call),
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-        child: Row(
-          children: [
-            // Avatar + Status
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundImage: avatar.startsWith('http')
-                      ? NetworkImage(avatar)
-                      : AssetImage(avatar) as ImageProvider,
-                  backgroundColor: Colors.grey.shade200,
-                ),
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(status),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      _getStatusText(status),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFEE9F2), Color(0xFFFBEFFF)],
+          ),
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.pinkAccent.withOpacity(0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+          child: Row(
+            children: [
+              // Avatar + Status
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundImage: avatar.startsWith('http')
+                        ? NetworkImage(avatar)
+                        : AssetImage(avatar) as ImageProvider,
+                    backgroundColor: Colors.grey.shade200,
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(status),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        _getStatusText(status),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 15),
+                ],
+              ),
+              const SizedBox(width: 15),
 
-            // Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${call.formattedDuration} • ${_formatTime(call.createdAt)}',
-                    style: const TextStyle(
-                      color: Colors.black54,
-                      fontSize: 13,
-                    ),
-                  ),
-                  if (call.totalCost != null && isCompleted)
+              // Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      'Earned: ${call.formattedCost}',
+                      name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${call.formattedDuration} • ${_formatTime(call.createdAt)}',
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      'Total minutes: ${_calculateTotalMinutes(call.durationSeconds)}',
                       style: TextStyle(
-                        color: Colors.green[600],
+                        color: isCompleted ? Colors.green[600] : Colors.black54,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            /// Chat Button
-            _buildChatButton(),
-          ],
+              /// Chat Button
+              _buildChatButton(),
+            ],
+          ),
         ),
       ),
     );
@@ -437,6 +424,90 @@ class _RecentsScreenState extends State<RecentsScreen> {
         child: const Icon(
           Icons.chat_bubble_outline,
           color: Colors.black54,
+        ),
+      ),
+    );
+  }
+}
+
+class _CallDetailsPage extends StatelessWidget {
+  const _CallDetailsPage({required this.call});
+
+  final Call call;
+
+  int _calculateTotalMinutes(int? durationSeconds) {
+    if (durationSeconds == null || durationSeconds <= 0) return 0;
+    return (durationSeconds / 60).ceil();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = call.callerName ?? 'Unknown User';
+    final totalMinutes = _calculateTotalMinutes(call.durationSeconds);
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: const Text('Call Details'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 0,
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFEEBF1), Color(0xFFF7F3FD)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Total minutes: $totalMinutes',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Total money: ${call.formattedCost}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.green[700],
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

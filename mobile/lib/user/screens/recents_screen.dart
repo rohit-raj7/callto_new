@@ -13,7 +13,6 @@ class RecentsScreen extends StatefulWidget {
 class _RecentsScreenState extends State<RecentsScreen> {
   final CallService _callService = CallService();
   
-  bool _showAll = true;
   bool _isLoading = true;
   String? _error;
   List<Call> _callHistory = [];
@@ -105,16 +104,15 @@ class _RecentsScreenState extends State<RecentsScreen> {
     }
   }
 
-  // Get filtered calls
-  List<Call> get _filteredCalls {
-    if (_showAll) return _callHistory;
-    return _callHistory.where((call) => call.status == 'missed').toList();
+  int _calculateTotalMinutes(int? durationSeconds) {
+    if (durationSeconds == null || durationSeconds <= 0) return 0;
+    return (durationSeconds / 60).ceil();
   }
 
   // Group calls by date
   Map<String, List<Call>> _groupCallsByDate() {
     final Map<String, List<Call>> grouped = {};
-    for (final call in _filteredCalls) {
+    for (final call in _callHistory) {
       final dateKey = _formatDate(call.createdAt);
       if (!grouped.containsKey(dateKey)) {
         grouped[dateKey] = [];
@@ -159,7 +157,7 @@ class _RecentsScreenState extends State<RecentsScreen> {
                             ],
                           ),
                         )
-                      : _filteredCalls.isEmpty
+                        : _callHistory.isEmpty
                           ? _buildEmptyState()
                           : RefreshIndicator(
                               onRefresh: _loadCallHistory,
@@ -180,7 +178,7 @@ class _RecentsScreenState extends State<RecentsScreen> {
           Icon(Icons.call_missed_outgoing, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
-            _showAll ? 'No recent calls' : 'No missed calls',
+            'No recent calls',
             style: TextStyle(
               fontSize: 18,
               color: Colors.grey.shade600,
@@ -258,34 +256,9 @@ class _RecentsScreenState extends State<RecentsScreen> {
                 ),
               ],
             ),
-            Row(
-              children: [
-                Text(
-                  _showAll ? 'All' : 'Missed',
-                  style: TextStyle(
-                    color: _showAll ? Colors.pinkAccent : Colors.red,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Switch(
-                  value: _showAll,
-                  onChanged: (bool value) {
-                    setState(() {
-                      _showAll = value;
-                    });
-                  },
-                  activeTrackColor: Colors.pinkAccent.withOpacity(0.5),
-                  activeColor: Colors.pinkAccent,
-                  inactiveTrackColor: Colors.red.shade200,
-                  inactiveThumbColor: Colors.red,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh, color: Colors.black54),
-                  onPressed: _loadCallHistory,
-                ),
-              ],
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.black54),
+              onPressed: _loadCallHistory,
             ),
           ],
         ),
@@ -377,9 +350,9 @@ class _RecentsScreenState extends State<RecentsScreen> {
                       fontSize: 13,
                     ),
                   ),
-                  if (call.totalCost != null && isCompleted)
+                  if (call.durationSeconds != null && isCompleted)
                     Text(
-                      'Cost: ${call.formattedCost}',
+                      'Total minutes: ${_calculateTotalMinutes(call.durationSeconds)}',
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 13,
