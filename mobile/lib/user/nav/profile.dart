@@ -404,8 +404,8 @@ class _ProfilePageState extends State<ProfilePage> {
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 10,
+                                  horizontal: 2,
+                                  vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
@@ -415,25 +415,28 @@ class _ProfilePageState extends State<ProfilePage> {
                                     width: 2,
                                   ),
                                 ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.edit,
-                                      color: Colors.pinkAccent,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      "Edit",
-                                      style: TextStyle(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.edit,
                                         color: Colors.pinkAccent,
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 13,
+                                        size: 14,
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        "Edit",
+                                        style: TextStyle(
+                                          color: Colors.pinkAccent,
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -455,32 +458,35 @@ class _ProfilePageState extends State<ProfilePage> {
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 10,
+                                  horizontal: 2,
+                                  vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
                                   color: Colors.pinkAccent,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.account_balance_wallet,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      "Add Balance",
-                                      style: TextStyle(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.account_balance_wallet,
                                         color: Colors.white,
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 13,
+                                        size: 14,
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        "Add Balance",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),

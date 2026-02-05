@@ -10,7 +10,12 @@ class FAQsPage extends StatefulWidget {
 
 class _FAQsPageState extends State<FAQsPage> {
   String selectedCategory = 'All';
-  
+
+  // App Colors - consistent with the rest of the app
+  static const Color primaryPink = Color(0xFFFF4081);
+  static const Color backgroundPink = Color(0xFFFCE4EC);
+  static const Color textDark = Color(0xFF880E4F);
+
   final Map<String, List<Map<String, String>>> categorizedFaqs = {
     'Account': [
       {
@@ -122,7 +127,7 @@ class _FAQsPageState extends State<FAQsPage> {
     'Support': [
       {
         "question": "How do I contact support?",
-        "answer": "You can reach us at support@yourapp.com, use the in-app chat (Settings → Help → Contact Support), or call +1 (555) 123-4567. Our support team is available 24/7 and typically responds within 2-4 hours."
+        "answer": "You can reach us at support@callto.in, use the in-app chat (Settings → Help → Contact Support), or call our helpline. Our support team is available 24/7 and typically responds within 2-4 hours."
       },
       {
         "question": "Can I recover a deleted account?",
@@ -134,11 +139,11 @@ class _FAQsPageState extends State<FAQsPage> {
       },
       {
         "question": "Where can I report bugs or suggest features?",
-        "answer": "We love feedback! Go to Settings → Help → Feedback or email feedback@yourapp.com. Include screenshots and detailed descriptions for bugs. We review all suggestions for future updates."
+        "answer": "We love feedback! Go to Settings → Help → Feedback or email support@callto.in. Include screenshots and detailed descriptions for bugs. We review all suggestions for future updates."
       },
       {
         "question": "Is there a user community or forum?",
-        "answer": "Yes! Visit community.yourapp.com to connect with other users, share tips, get help, and stay updated on new features. You can also join our official social media channels."
+        "answer": "Yes! Visit our official website to connect with other users, share tips, get help, and stay updated on new features. You can also join our official social media channels."
       },
     ],
   };
@@ -152,143 +157,184 @@ class _FAQsPageState extends State<FAQsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text(
-          "FAQs",
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-      ),
-      body: Column(
-        children: [
-          // Header Section
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24.0),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+      backgroundColor: isDark ? const Color(0xFF0F172A) : backgroundPink,
+      body: CustomScrollView(
+        slivers: [
+          // Hero Section with Gradient
+          SliverAppBar(
+            expandedHeight: 240,
+            pinned: true,
+            backgroundColor: isDark ? const Color(0xFF1E293B) : primaryPink,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [const Color(0xFF0F172A), const Color(0xFF1E293B)]
+                        : [primaryPink, const Color(0xFFF06292)],
+                  ),
                 ),
-              ],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 40),
+                    Container(
+                      height: 80,
+                      width: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: Colors.white30, width: 2),
+                      ),
+                      child: const Icon(Icons.help_outline_rounded,
+                          color: Colors.white, size: 40),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "FAQs",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "How can we help you today?",
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.help_outline_rounded,
-                  size: 64,
-                  color: Colors.blueAccent.shade400,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  "How can we help you?",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Find answers to frequently asked questions",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
             ),
           ),
 
-          // Category Filter
-          Container(
-            height: 50,
-            margin: const EdgeInsets.symmetric(vertical: 16),
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                _buildCategoryChip('All', Icons.apps_rounded),
-                _buildCategoryChip('Account', Icons.person_outline),
-                _buildCategoryChip('Privacy & Security', Icons.security_outlined),
-                _buildCategoryChip('Features', Icons.star_outline),
-                _buildCategoryChip('Subscriptions', Icons.payment_outlined),
-                _buildCategoryChip('Technical', Icons.settings_outlined),
-                _buildCategoryChip('Support', Icons.support_agent_outlined),
-              ],
+          // Category Filter (SliverToBoxAdapter)
+          SliverToBoxAdapter(
+            child: Container(
+              height: 50,
+              margin: const EdgeInsets.symmetric(vertical: 16),
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  _buildCategoryChip('All', Icons.apps_rounded, isDark),
+                  _buildCategoryChip('Account', Icons.person_outline, isDark),
+                  _buildCategoryChip('Privacy & Security', Icons.security_outlined, isDark),
+                  _buildCategoryChip('Features', Icons.star_outline, isDark),
+                  _buildCategoryChip('Subscriptions', Icons.payment_outlined, isDark),
+                  _buildCategoryChip('Technical', Icons.settings_outlined, isDark),
+                  _buildCategoryChip('Support', Icons.support_agent_outlined, isDark),
+                ],
+              ),
             ),
           ),
 
           // FAQ List
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: filteredFaqs.length,
-              itemBuilder: (context, index) {
-                final faq = filteredFaqs[index];
-                return _buildFAQCard(faq);
-              },
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final faq = filteredFaqs[index];
+                  return _buildFAQCard(faq, isDark);
+                },
+                childCount: filteredFaqs.length,
+              ),
             ),
           ),
 
           // Contact Support Button
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pinkAccent,
-                  foregroundColor: Colors.white,
-                  elevation: 2,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [primaryPink, Color(0xFFF06292)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: primaryPink.withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ContactSupportPage()),
-                  );
-                },
-                icon: const Icon(Icons.support_agent, size: 22),
-                label: const Text(
-                  "Still need help? Contact Support",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.support_agent_rounded, size: 56, color: Colors.white),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Still Need Help?",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      "Our support team is available 24/7 to assist you with any questions or issues.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: primaryPink,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ContactSupportPage()),
+                        );
+                      },
+                      child: const Text(
+                        "Contact Support",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
+          const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
       ),
     );
   }
 
-  Widget _buildCategoryChip(String category, IconData icon) {
+  Widget _buildCategoryChip(String category, IconData icon, bool isDark) {
     final isSelected = selectedCategory == category;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -300,23 +346,23 @@ class _FAQsPageState extends State<FAQsPage> {
             Icon(
               icon,
               size: 18,
-              color: isSelected ? Colors.white : Colors.grey[700],
+              color: isSelected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey[700]),
             ),
             const SizedBox(width: 6),
             Text(category),
           ],
         ),
         labelStyle: TextStyle(
-          color: isSelected ? Colors.white : Colors.grey[700],
+          color: isSelected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey[700]),
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           fontSize: 13,
         ),
-        backgroundColor: Colors.white,
-        selectedColor: Colors.blueAccent,
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        selectedColor: primaryPink,
         checkmarkColor: Colors.white,
         elevation: isSelected ? 2 : 0,
         side: BorderSide(
-          color: isSelected ? Colors.blueAccent : Colors.grey[300]!,
+          color: isSelected ? primaryPink : (isDark ? Colors.white12 : Colors.grey[300]!),
           width: 1,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -329,12 +375,12 @@ class _FAQsPageState extends State<FAQsPage> {
     );
   }
 
-  Widget _buildFAQCard(Map<String, String> faq) {
+  Widget _buildFAQCard(Map<String, String> faq, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -342,6 +388,10 @@ class _FAQsPageState extends State<FAQsPage> {
             offset: const Offset(0, 2),
           ),
         ],
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.transparent,
+          width: 1,
+        ),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(
@@ -350,19 +400,19 @@ class _FAQsPageState extends State<FAQsPage> {
         child: ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          iconColor: Colors.blueAccent,
-          collapsedIconColor: Colors.grey[400],
+          iconColor: primaryPink,
+          collapsedIconColor: isDark ? Colors.grey[600] : Colors.grey[400],
           title: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
+                  color: primaryPink.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  Icons.question_answer_outlined,
-                  color: Colors.blueAccent,
+                child: const Icon(
+                  Icons.question_answer_rounded,
+                  color: primaryPink,
                   size: 20,
                 ),
               ),
@@ -370,10 +420,10 @@ class _FAQsPageState extends State<FAQsPage> {
               Expanded(
                 child: Text(
                   faq["question"]!,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
                     fontSize: 15,
-                    color: Colors.black87,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
               ),
@@ -383,13 +433,13 @@ class _FAQsPageState extends State<FAQsPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
+                color: isDark ? const Color(0xFF0F172A) : backgroundPink.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
                 faq["answer"]!,
                 style: TextStyle(
-                  color: Colors.grey[700],
+                  color: isDark ? Colors.grey[400] : Colors.grey[800],
                   fontSize: 14,
                   height: 1.6,
                 ),
