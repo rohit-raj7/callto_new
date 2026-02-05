@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -42,24 +43,43 @@ class ApiService {
     }
   }
 
-  /// Make a POST request
+  /// Make a POST request with retry logic for cold starts
   Future<ApiResponse> post(String url, {Map<String, dynamic>? body}) async {
-    try {
-      final uri = Uri.parse(url);
-      final headers = await _getHeaders();
+    int retries = 0;
+    
+    while (retries <= ApiConfig.maxRetries) {
+      try {
+        final uri = Uri.parse(url);
+        final headers = await _getHeaders();
+        
+        final response = await http
+            .post(uri, headers: headers, body: body != null ? jsonEncode(body) : null)
+            .timeout(ApiConfig.timeout);
+        
+        return _handleResponse(response);
+      } on SocketException {
+        if (retries >= ApiConfig.maxRetries) {
+          return ApiResponse.error('No internet connection. Please check your network.');
+        }
+      } on TimeoutException {
+        if (retries >= ApiConfig.maxRetries) {
+          return ApiResponse.error('Server is starting up. Please try again in a moment.');
+        }
+      } on HttpException {
+        if (retries >= ApiConfig.maxRetries) {
+          return ApiResponse.error('Server error occurred');
+        }
+      } catch (e) {
+        if (retries >= ApiConfig.maxRetries) {
+          return ApiResponse.error('Request failed: $e');
+        }
+      }
       
-      final response = await http
-          .post(uri, headers: headers, body: body != null ? jsonEncode(body) : null)
-          .timeout(ApiConfig.timeout);
-      
-      return _handleResponse(response);
-    } on SocketException {
-      return ApiResponse.error('No internet connection');
-    } on HttpException {
-      return ApiResponse.error('Server error occurred');
-    } catch (e) {
-      return ApiResponse.error('Request failed: $e');
+      retries++;
+      await Future.delayed(ApiConfig.retryDelay);
     }
+    
+    return ApiResponse.error('Request failed after retries');
   }
 
   /// Make a PUT request

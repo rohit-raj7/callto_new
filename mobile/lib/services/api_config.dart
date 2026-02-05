@@ -1,15 +1,15 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConfig {
-  static final String baseUrl = kDebugMode
-      ? (kIsWeb 
-          ? 'http://localhost:3002' 
-          : (defaultTargetPlatform == TargetPlatform.android 
-              ? 'http://10.0.2.2:3002' 
-              : 'http://localhost:3002'))
-      : 'https://callto-4.onrender.com';
+//   static final String baseUrl = kDebugMode
+//       ? (kIsWeb 
+//           ? 'http://localhost:3002' 
+//           : (defaultTargetPlatform == TargetPlatform.android 
+//               ? 'http://10.0.2.2:3002' 
+//               : 'http://localhost:3002'))
+//       : 'https://callto-4.onrender.com';
 
-  // static final String baseUrl = 'https://callto-4.onrender.com';
+  static final String baseUrl = 'https://call-to.onrender.com';
       
 
   static final String socketUrl = baseUrl;
@@ -37,5 +37,7 @@ class ApiConfig {
 
   static final String health = '$apiBase/health';
 
-  static final Duration timeout = const Duration(seconds: 30);
+  static final Duration timeout = const Duration(seconds: 60);
+  static const int maxRetries = 3;
+  static const Duration retryDelay = Duration(seconds: 2);
 }

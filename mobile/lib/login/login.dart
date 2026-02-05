@@ -676,20 +676,25 @@ class _LoginScreenState extends State with TickerProviderStateMixin {
   }
 
   Widget _buildImageAsset(String path, double height, {bool isLogo = false}) {
+    // Ensure height is positive and cacheHeight is at least 1
+    final safeHeight = height > 0 ? height : 1.0;
+    final cacheHeight = (safeHeight * MediaQuery.of(context).devicePixelRatio).round();
+    final safeCacheHeight = cacheHeight > 0 ? cacheHeight : 1;
+    
     return Image.asset(
       path,
-      height: height,
+      height: safeHeight,
       fit: isLogo ? BoxFit.contain : BoxFit.cover,
-      cacheHeight: (height * MediaQuery.of(context).devicePixelRatio).round(),
+      cacheHeight: safeCacheHeight,
       errorBuilder: (context, error, stackTrace) {
         return Container(
-          height: height,
+          height: safeHeight,
           color: isLogo ? Colors.transparent : Colors.grey.shade900,
           child: Center(
             child: Icon(
               isLogo ? Icons.image_not_supported : Icons.hide_image_outlined,
               color: Colors.white30,
-              size: isLogo ? height * 0.8 : 50,
+              size: isLogo ? safeHeight * 0.8 : 50,
             ),
           ),
         );
