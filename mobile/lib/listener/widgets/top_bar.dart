@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../nav/profile.dart';
 import '../../services/storage_service.dart';
 import '../../services/listener_service.dart';
+import '../../services/call_service.dart';
 
 class TopBar extends StatefulWidget {
   const TopBar({super.key});
@@ -12,13 +13,47 @@ class TopBar extends StatefulWidget {
 
 class _TopBarState extends State<TopBar> {
   String? _avatarUrl;
+  double _totalEarnings = 0.0;
   // ignore: unused_field - used for future loading state
   bool _isLoading = true;
+  final CallService _callService = CallService();
 
   @override
   void initState() {
     super.initState();
     _loadAvatar();
+    _loadEarnings();
+  }
+
+  /// Load total earnings from call history
+  Future<void> _loadEarnings() async {
+    try {
+      final result = await _callService.getListenerCallHistory(
+        limit: 500,
+        offset: 0,
+      );
+
+      if (result.success) {
+        // Calculate total net earnings (70% of gross after platform fee)
+        double totalGross = 0;
+        for (final call in result.calls) {
+          if (call.status == 'completed' && call.totalCost != null) {
+            totalGross += call.totalCost!;
+          }
+        }
+        // Net earnings = 70% of gross (30% platform fee deducted)
+        final netEarnings = totalGross * 0.70;
+        
+        if (mounted) {
+          setState(() {
+            _totalEarnings = netEarnings;
+          });
+        }
+      }
+    } catch (e) {
+      // Silently handle errors - will show 0.00
+      print('Failed to load earnings: $e');
+    }
   }
 
   Future<void> _loadAvatar() async {
@@ -90,6 +125,8 @@ class _TopBarState extends State<TopBar> {
                     if (result != null) {
                       _loadAvatar();
                     }
+                    // Refresh earnings when returning from profile
+                    _loadEarnings();
                   },
                   child: _buildAvatarWidget(),
                 ),
@@ -108,17 +145,17 @@ class _TopBarState extends State<TopBar> {
                     ),
                     borderRadius: BorderRadius.circular(30),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.currency_rupee_rounded,
                         color: Colors.white,
                         size: 16,
                       ),
-                      SizedBox(width: 2),
+                      const SizedBox(width: 2),
                       Text(
-                        "0.00",
-                        style: TextStyle(
+                        _totalEarnings.toStringAsFixed(2),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.bold,

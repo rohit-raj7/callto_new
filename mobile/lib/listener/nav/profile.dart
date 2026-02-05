@@ -6,6 +6,7 @@ import '../screens/recents_screen.dart';
 import 'profile/setting.dart';
 import '../../services/listener_service.dart';
 import '../../services/storage_service.dart';
+import '../../services/call_service.dart';
 import '../../models/listener_model.dart' as models;
 
 class ProfilePage extends StatefulWidget {
@@ -19,7 +20,9 @@ class _ProfilePageState extends State<ProfilePage> {
   late Future<void> _loadListenerFuture;
   models.Listener? _listener;
   String? _gender;
+  double _totalEarnings = 0.0;
   final StorageService _storageService = StorageService();
+  final CallService _callService = CallService();
 
   @override
   void initState() {
@@ -34,6 +37,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
       // First try to fetch from backend (source of truth)
       final result = await listenerService.getMyProfile();
+
+      // Load earnings data
+      await _loadEarningsData();
 
       if (result.success && result.listener != null) {
         if (mounted) {
@@ -85,6 +91,36 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     } catch (e) {
       // swallow errors silently
+    }
+  }
+
+  /// Load earnings data to display total earnings
+  Future<void> _loadEarningsData() async {
+    try {
+      final result = await _callService.getListenerCallHistory(
+        limit: 500,
+        offset: 0,
+      );
+
+      if (result.success) {
+        // Calculate total net earnings (70% of gross after platform fee)
+        double totalGross = 0;
+        for (final call in result.calls) {
+          if (call.status == 'completed' && call.totalCost != null) {
+            totalGross += call.totalCost!;
+          }
+        }
+        // Net earnings = 70% of gross (30% platform fee deducted)
+        final netEarnings = totalGross * 0.70;
+        
+        if (mounted) {
+          setState(() {
+            _totalEarnings = netEarnings;
+          });
+        }
+      }
+    } catch (e) {
+      // Silently handle errors - will show 0.00
     }
   }
 
@@ -160,9 +196,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         horizontal: 12,
                         vertical: 6,
                       ),
-                      child: const Text(
-                        "₹0.00",
-                        style: TextStyle(
+                      child: Text(
+                        "₹${_totalEarnings.toStringAsFixed(2)}",
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.5,
@@ -327,137 +363,152 @@ class _ProfilePageState extends State<ProfilePage> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () async {
-                                      if (listener.listenerId.isEmpty) {
-                                        await _refreshProfile();
-                                        if (_listener == null ||
-                                            _listener!.listenerId.isEmpty) {
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Listener data is still loading. Try again shortly.',
-                                                ),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                // Detect mobile screen (width < 400)
+                                final isMobile = MediaQuery.of(context).size.width < 400;
+                                
+                                // Button dimensions based on screen size
+                                final buttonPaddingH = isMobile ? 6.0 : 8.0;
+                                final buttonPaddingV = isMobile ? 6.0 : 10.0;
+                                final iconSize = isMobile ? 14.0 : 16.0;
+                                final fontSize = isMobile ? 11.0 : 13.0;
+                                final spacing = isMobile ? 2.0 : 4.0;
+                                
+                                return Row(
+                                  children: [
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () async {
+                                          if (listener.listenerId.isEmpty) {
+                                            await _refreshProfile();
+                                            if (_listener == null ||
+                                                _listener!.listenerId.isEmpty) {
+                                              if (mounted) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Listener data is still loading. Try again shortly.',
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                              return;
+                                            }
+                                          }
+
+                                          final result = await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => EditProfilePage(
+                                                listener: _listener!,
+                                                gender: _gender,
                                               ),
+                                            ),
+                                          );
+
+                                          if (result is models.Listener) {
+                                            setState(() {
+                                              _listener = result;
+                                            });
+                                            // Refresh from backend in background to sync any other data
+                                            // but don't await to keep UI responsive
+                                            Future.delayed(
+                                              const Duration(milliseconds: 500),
+                                              () {
+                                                if (mounted) _refreshProfile();
+                                              },
                                             );
                                           }
-                                          return;
-                                        }
-                                      }
-
-                                      final result = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => EditProfilePage(
-                                            listener: _listener!,
-                                            gender: _gender,
+                                        },
+                                        child: Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: buttonPaddingH,
+                                            vertical: buttonPaddingV,
                                           ),
-                                        ),
-                                      );
-
-                                      if (result is models.Listener) {
-                                        setState(() {
-                                          _listener = result;
-                                        });
-                                        // Refresh from backend in background to sync any other data
-                                        // but don't await to keep UI responsive
-                                        Future.delayed(
-                                          const Duration(milliseconds: 500),
-                                          () {
-                                            if (mounted) _refreshProfile();
-                                          },
-                                        );
-                                      }
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 10,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: Colors.pinkAccent,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      child: const Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.edit,
-                                            color: Colors.pinkAccent,
-                                            size: 16,
-                                          ),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            "Edit Profile",
-                                            style: TextStyle(
-                                              color: Colors.pinkAccent,
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const PaymentMethodsPage(),
-                                        ),
-                                      );
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 10,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.pinkAccent,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.payment,
+                                          decoration: BoxDecoration(
                                             color: Colors.white,
-                                            size: 16,
-                                          ),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            "Payment",
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 13,
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: Colors.pinkAccent,
+                                              width: 2,
                                             ),
                                           ),
-                                        ],
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.edit,
+                                                color: Colors.pinkAccent,
+                                                size: iconSize,
+                                              ),
+                                              SizedBox(width: spacing),
+                                              Text(
+                                                "Edit Profile",
+                                                style: TextStyle(
+                                                  color: Colors.pinkAccent,
+                                                  fontWeight: FontWeight.w500,
+                                                  fontSize: fontSize,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
-                              ],
+                                    SizedBox(width: isMobile ? 4 : 8),
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () {
+                                          // Navigate to Earnings screen (renamed from PaymentMethodsPage)
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  const PaymentMethodsPage(),
+                                            ),
+                                          );
+                                        },
+                                        child: Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: buttonPaddingH,
+                                            vertical: buttonPaddingV,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.pinkAccent,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.account_balance_wallet,
+                                                color: Colors.white,
+                                                size: iconSize,
+                                              ),
+                                              SizedBox(width: spacing),
+                                              Text(
+                                                "Earned",
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w500,
+                                                  fontSize: fontSize,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ],
                         ),
