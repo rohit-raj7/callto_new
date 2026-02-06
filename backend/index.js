@@ -493,6 +493,56 @@ io.on('connection', (socket) => {
     }
   });
 
+  // WhatsApp-style: Delete message for everyone
+  // This permanently deletes from DB and broadcasts to both users
+  // Backend does NOT store placeholder text - that's client-side only
+  socket.on('delete_message', async (data) => {
+    const { messageId, chatId, senderId, receiverId } = data || {};
+    
+    if (!messageId || !senderId) {
+      console.log(`[SOCKET] delete_message failed - missing messageId or senderId`);
+      socket.emit('chat:error', { error: 'Missing required fields for delete' });
+      return;
+    }
+
+    try {
+      const { Message } = await import('./models/Chat.js');
+      
+      // Delete message from database (validates sender ownership)
+      const result = await Message.delete(messageId, senderId);
+      
+      if (!result.success) {
+        console.log(`[SOCKET] delete_message failed: ${result.error}`);
+        socket.emit('chat:error', { error: result.error });
+        return;
+      }
+
+      console.log(`[SOCKET] Message ${messageId} deleted from DB by ${senderId}`);
+
+      // Broadcast delete event to all users in the chat room
+      // Both sender and receiver will save this locally and show placeholder
+      const deleteData = {
+        messageId,
+        chatId: result.chatId || chatId,
+        deletedBy: senderId
+      };
+
+      // Emit to chat room (for users currently in the chat)
+      io.to(`chat_${chatId}`).emit('message:deleted', deleteData);
+      
+      // Also emit to both users' personal rooms (in case they're not in chat room)
+      io.to(`user_${senderId}`).emit('message:deleted', deleteData);
+      if (receiverId) {
+        io.to(`user_${receiverId}`).emit('message:deleted', deleteData);
+      }
+
+      console.log(`[SOCKET] Delete event broadcast for message ${messageId}`);
+    } catch (error) {
+      console.error(`[SOCKET] Error deleting message:`, error);
+      socket.emit('chat:error', { error: 'Failed to delete message' });
+    }
+  });
+
   // 3. DISCONNECTION
 
   socket.on('disconnect', () => {

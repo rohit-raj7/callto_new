@@ -37,6 +37,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final List<Message> _messages = [];
   String? _chatId;
   String? _currentUserId;
+  String? _otherUserId; // Track other user's ID for delete for everyone
   bool _isLoading = true;
   bool _isTyping = false;
   bool _otherUserTyping = false;
@@ -46,12 +47,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   // Track if we've received history from socket
   bool _historyReceived = false;
   
+  // WhatsApp-style delete: Track locally deleted messages
+  Set<String> _deletedForMe = {};
+  Set<String> _deletedForEveryone = {};
+  
   // Stream subscriptions
   StreamSubscription<Map<String, dynamic>>? _messageSubscription;
   StreamSubscription<Map<String, dynamic>>? _historySubscription;
   StreamSubscription<Map<String, dynamic>>? _typingSubscription;
   StreamSubscription<Map<String, dynamic>>? _errorSubscription;
   StreamSubscription<Map<String, dynamic>>? _readSubscription;
+  StreamSubscription<Map<String, dynamic>>? _deleteSubscription; // For delete events
 
   @override
   void initState() {
@@ -96,6 +102,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         return;
       }
 
+      // Load locally deleted message IDs for WhatsApp-style delete
+      _deletedForMe = await _storage.getDeletedForMe();
+      _deletedForEveryone = await _storage.getDeletedForEveryone();
+
       // If we already have a chatId, use it
       if (widget.chatId != null) {
         _chatId = widget.chatId;
@@ -118,6 +128,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         });
         return;
       }
+
+      // Set other user ID for delete for everyone feature
+      _otherUserId = widget.otherUserId;
 
       // Ensure socket is connected
       final connected = await _socketService.connect();
@@ -277,6 +290,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    });
+
+    // WhatsApp-style: Listen for message deleted events
+    _deleteSubscription = _socketService.onMessageDeleted.listen((data) {
+      final messageId = data['messageId']?.toString();
+      final chatId = data['chatId']?.toString();
+      
+      if (messageId != null && (chatId == _chatId || chatId == null)) {
+        print('[ChatPage-Listener] Message deleted event received: $messageId');
+        
+        // Save to local storage as "deleted for everyone"
+        _storage.addDeletedForEveryone(messageId);
+        
+        // Update local state
+        setState(() {
+          _deletedForEveryone.add(messageId);
+        });
       }
     });
   }

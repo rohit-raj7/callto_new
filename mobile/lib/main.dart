@@ -31,10 +31,13 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
   final SocketService _socketService = SocketService();
   final ChatStateManager _chatStateManager = ChatStateManager();
   final StorageService _storageService = StorageService();
+  final IncomingCallOverlayService _overlayService = IncomingCallOverlayService();
   
   // Global incoming call handling for listeners
   StreamSubscription<IncomingCall>? _incomingCallSubscription;
+  StreamSubscription<String>? _callHandledSubscription;
   bool _isShowingIncomingCall = false;
+  String? _currentlyShowingCallId; // Track which call dialog is showing
 
   @override
   void initState() {
@@ -60,6 +63,30 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
       print('[MAIN] Global handler received incoming call from ${call.callerName}');
       _showIncomingCallDialog(call);
     });
+    
+    // Subscribe to call handled events from home screen
+    // This allows us to close the dialog when call is handled from home screen list
+    _callHandledSubscription?.cancel();
+    _callHandledSubscription = _overlayService.onCallHandled.listen((callId) {
+      print('[MAIN] Call $callId was handled from home screen');
+      if (_isShowingIncomingCall && _currentlyShowingCallId == callId) {
+        // Close the dialog - call was handled from home screen
+        _dismissIncomingCallDialog();
+      }
+    });
+  }
+  
+  /// Dismiss the currently showing incoming call dialog
+  void _dismissIncomingCallDialog() {
+    if (_isShowingIncomingCall && navigatorKey.currentContext != null) {
+      try {
+        Navigator.of(navigatorKey.currentContext!).pop();
+      } catch (e) {
+        print('[MAIN] Error dismissing dialog: $e');
+      }
+    }
+    _isShowingIncomingCall = false;
+    _currentlyShowingCallId = null;
   }
 
   /// Show incoming call as a full-screen dialog that works on any page
@@ -83,6 +110,7 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
     }
     
     _isShowingIncomingCall = true;
+    _currentlyShowingCallId = call.callId;
     
     showDialog(
       context: context,
@@ -92,21 +120,27 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
         onAccept: () async {
           Navigator.of(dialogContext).pop();
           _isShowingIncomingCall = false;
+          _currentlyShowingCallId = null;
           await _acceptCall(call, context);
         },
         onReject: () async {
           Navigator.of(dialogContext).pop();
           _isShowingIncomingCall = false;
+          _currentlyShowingCallId = null;
           await _rejectCall(call);
         },
       ),
     ).then((_) {
       _isShowingIncomingCall = false;
+      _currentlyShowingCallId = null;
     });
   }
 
   Future<void> _acceptCall(IncomingCall call, BuildContext context) async {
     try {
+      // Remove from overlay service list (in case it's also shown there)
+      _overlayService.removeCallFromList(call.callId);
+      
       final callService = CallService();
       await callService.updateCallStatus(callId: call.callId, status: 'ongoing');
       
@@ -131,6 +165,9 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
 
   Future<void> _rejectCall(IncomingCall call) async {
     try {
+      // Remove from overlay service list (in case it's also shown there)
+      _overlayService.removeCallFromList(call.callId);
+      
       final callService = CallService();
       await callService.updateCallStatus(callId: call.callId, status: 'rejected');
       _socketService.rejectCall(callId: call.callId, callerId: call.callerId);
@@ -143,6 +180,7 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _incomingCallSubscription?.cancel();
+    _callHandledSubscription?.cancel();
     super.dispose();
   }
 

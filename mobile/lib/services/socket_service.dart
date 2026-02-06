@@ -80,6 +80,7 @@ class SocketService {
     StreamController<Map<String, dynamic>>? _chatReadController;
     StreamController<Map<String, dynamic>>? _chatErrorController;
     StreamController<Map<String, dynamic>>? _chatNotificationController;
+    StreamController<Map<String, dynamic>>? _messageDeletedController; // For delete_message events
     
   static final SocketService _instance = SocketService._internal();
   factory SocketService() => _instance;
@@ -183,6 +184,11 @@ class SocketService {
     return _chatNotificationController!;
   }
 
+  StreamController<Map<String, dynamic>> get _messageDeleted {
+    _messageDeletedController ??= StreamController<Map<String, dynamic>>.broadcast();
+    return _messageDeletedController!;
+  }
+
   // Public streams - Call related
   Stream<IncomingCall> get onIncomingCall => _incomingCall.stream;
   Stream<Map<String, dynamic>> get onCallAccepted => _callAccepted.stream;
@@ -200,6 +206,7 @@ class SocketService {
   Stream<Map<String, dynamic>> get onChatMessagesRead => _chatRead.stream;
   Stream<Map<String, dynamic>> get onChatError => _chatError.stream;
   Stream<Map<String, dynamic>> get onChatNotification => _chatNotification.stream;
+  Stream<Map<String, dynamic>> get onMessageDeleted => _messageDeleted.stream; // For delete_message events
 
   bool get isConnected => _socket?.connected ?? false;
   
@@ -425,6 +432,17 @@ class SocketService {
         }
       } catch (e) {
         _log('Error parsing chat:new_message_notification: $e');
+      }
+    });
+
+    // Listen for message deleted events (WhatsApp-style delete for everyone)
+    _socket!.on('message:deleted', (data) {
+      _log('Message deleted event received: $data');
+      try {
+        final deleteData = data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data);
+        _messageDeleted.add(deleteData);
+      } catch (e) {
+        _log('Error parsing message:deleted: $e');
       }
     });
 
@@ -799,6 +817,28 @@ class SocketService {
     _socket!.emit('chat:read', {'chatId': chatId});
   }
 
+  /// Delete a message for everyone (WhatsApp-style)
+  /// This permanently deletes from backend DB and broadcasts to both users
+  void deleteMessageForEveryone({
+    required String messageId,
+    required String chatId,
+    required String receiverId,
+  }) {
+    if (_socket == null || !_isConnected) {
+      _log('Cannot delete message - socket not connected');
+      _chatError.add({'error': 'Not connected to server'});
+      return;
+    }
+
+    _log('Deleting message for everyone: $messageId');
+    _socket!.emit('delete_message', {
+      'messageId': messageId,
+      'chatId': chatId,
+      'senderId': _currentUserId,
+      'receiverId': receiverId,
+    });
+  }
+
   /// Check if connected to a specific chat room
   bool isInChatRoom(String chatId) => _joinedChatRooms.contains(chatId);
 
@@ -840,5 +880,7 @@ class SocketService {
     _chatErrorController = null;
     _chatNotificationController?.close();
     _chatNotificationController = null;
+    _messageDeletedController?.close();
+    _messageDeletedController = null;
   }
 }

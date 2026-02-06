@@ -149,6 +149,33 @@ class Message {
     const result = await pool.query(query, [user_id]);
     return result.rows[0].unread_count;
   }
+
+  // Delete a message permanently (WhatsApp-style delete for everyone)
+  // Backend never stores placeholder text - that's handled client-side only
+  static async delete(messageId, senderId) {
+    // First verify the sender owns this message
+    const verifyQuery = `SELECT sender_id, chat_id FROM messages WHERE message_id = $1`;
+    const verifyResult = await pool.query(verifyQuery, [messageId]);
+    
+    if (verifyResult.rows.length === 0) {
+      return { success: false, error: 'Message not found' };
+    }
+    
+    const message = verifyResult.rows[0];
+    if (message.sender_id !== senderId) {
+      return { success: false, error: 'Not authorized to delete this message' };
+    }
+    
+    // Permanently delete the message
+    const deleteQuery = `DELETE FROM messages WHERE message_id = $1 RETURNING *`;
+    const deleteResult = await pool.query(deleteQuery, [messageId]);
+    
+    return { 
+      success: true, 
+      deletedMessage: deleteResult.rows[0],
+      chatId: message.chat_id
+    };
+  }
 }
 
 export { Chat, Message };

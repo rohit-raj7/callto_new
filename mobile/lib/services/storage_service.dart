@@ -18,6 +18,9 @@ class StorageService {
   static const String _formDataKey = 'form_data';
   static const String _dobKey = 'dob';
   static const String _mobileKey = 'mobile';
+  static const String _deletedMessagesKey = 'deleted_messages'; // For local delete for me
+  static const String _deletedForEveryoneKey = 'deleted_for_everyone'; // For delete for everyone placeholders
+  
     /// Save date of birth
     Future<void> saveDob(String dob) async {
       final prefs = await SharedPreferences.getInstance();
@@ -373,4 +376,70 @@ class StorageService {
     await prefs.remove(_listenerRatePerMinuteKey);
     await prefs.remove(_listenerVoiceVerifiedKey);
     await prefs.remove(_listenerSpecialtiesKey);
-  }}
+  }
+
+  // ============================================
+  // MESSAGE DELETE STORAGE (WhatsApp-like delete feature)
+  // ============================================
+
+  /// Add a message ID to local "deleted for me" list
+  /// These messages are hidden only on this device
+  Future<void> addDeletedForMe(String messageId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final deleted = prefs.getStringList(_deletedMessagesKey) ?? [];
+    if (!deleted.contains(messageId)) {
+      deleted.add(messageId);
+      await prefs.setStringList(_deletedMessagesKey, deleted);
+    }
+  }
+
+  /// Get all message IDs deleted locally (delete for me)
+  Future<Set<String>> getDeletedForMe() async {
+    final prefs = await SharedPreferences.getInstance();
+    final deleted = prefs.getStringList(_deletedMessagesKey) ?? [];
+    return deleted.toSet();
+  }
+
+  /// Check if a message is deleted for me
+  Future<bool> isDeletedForMe(String messageId) async {
+    final deleted = await getDeletedForMe();
+    return deleted.contains(messageId);
+  }
+
+  /// Add a message ID to "deleted for everyone" placeholder list
+  /// These show "This message was deleted" on both devices
+  Future<void> addDeletedForEveryone(String messageId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final deleted = prefs.getStringList(_deletedForEveryoneKey) ?? [];
+    if (!deleted.contains(messageId)) {
+      deleted.add(messageId);
+      await prefs.setStringList(_deletedForEveryoneKey, deleted);
+    }
+  }
+
+  /// Get all message IDs deleted for everyone
+  Future<Set<String>> getDeletedForEveryone() async {
+    final prefs = await SharedPreferences.getInstance();
+    final deleted = prefs.getStringList(_deletedForEveryoneKey) ?? [];
+    return deleted.toSet();
+  }
+
+  /// Check if a message was deleted for everyone
+  Future<bool> isDeletedForEveryone(String messageId) async {
+    final deleted = await getDeletedForEveryone();
+    return deleted.contains(messageId);
+  }
+
+  /// Remove a message ID from deleted lists (if needed for cleanup)
+  Future<void> removeFromDeletedLists(String messageId) async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    final deletedForMe = prefs.getStringList(_deletedMessagesKey) ?? [];
+    deletedForMe.remove(messageId);
+    await prefs.setStringList(_deletedMessagesKey, deletedForMe);
+    
+    final deletedForEveryone = prefs.getStringList(_deletedForEveryoneKey) ?? [];
+    deletedForEveryone.remove(messageId);
+    await prefs.setStringList(_deletedForEveryoneKey, deletedForEveryone);
+  }
+}

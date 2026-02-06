@@ -21,8 +21,16 @@ class IncomingCallOverlayService {
   final StreamController<List<IncomingCall>> _callsController = 
       StreamController<List<IncomingCall>>.broadcast();
   
+  // Stream to notify when a call is handled (accepted/rejected) from home screen
+  // This allows main.dart to close its dialog when call is handled elsewhere
+  final StreamController<String> _callHandledController = 
+      StreamController<String>.broadcast();
+  
   /// Stream of incoming calls list for UI
   Stream<List<IncomingCall>> get onCallsUpdated => _callsController.stream;
+  
+  /// Stream that emits callId when a call is handled (from home screen list)
+  Stream<String> get onCallHandled => _callHandledController.stream;
   
   /// Get current incoming calls
   List<IncomingCall> get incomingCalls => List.unmodifiable(_incomingCalls);
@@ -65,12 +73,12 @@ class IncomingCallOverlayService {
       _callsController.add(List.from(_incomingCalls));
       return;
     }
-    // Add to list if not already there
-    if (!_incomingCalls.any((c) => c.callId == call.callId)) {
-      _incomingCalls.insert(0, call);
-      _callsController.add(List.from(_incomingCalls));
-    }
-    // Overlay disabled - calls shown only in home screen list view
+    
+    // NOTE: As of the new architecture, main.dart handles showing incoming call dialogs globally.
+    // This service no longer adds calls to the list to avoid duplicate UIs.
+    // The list functionality is kept for potential future use (e.g., call queue).
+    
+    // Overlay disabled - calls shown only via main.dart global dialog
     // _showIncomingCallOverlay(call);
   }
 
@@ -190,12 +198,18 @@ class IncomingCallOverlayService {
   }
   
   /// Accept call from list view (not overlay)
+  /// Notifies main.dart to close its dialog via onCallHandled stream
   void acceptCallFromList(IncomingCall call) {
+    // Notify main.dart to close its dialog BEFORE accepting
+    _callHandledController.add(call.callId);
     _acceptCall(call);
   }
   
   /// Reject call from list view (not overlay)
+  /// Notifies main.dart to close its dialog via onCallHandled stream
   void rejectCallFromList(IncomingCall call) {
+    // Notify main.dart to close its dialog BEFORE rejecting
+    _callHandledController.add(call.callId);
     _rejectCall(call);
   }
   
@@ -203,6 +217,8 @@ class IncomingCallOverlayService {
   void removeCallFromList(String callId) {
     _incomingCalls.removeWhere((c) => c.callId == callId);
     _callsController.add(List.from(_incomingCalls));
+    // Also notify main.dart
+    _callHandledController.add(callId);
   }
 }
 
