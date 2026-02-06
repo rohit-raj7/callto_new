@@ -48,6 +48,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         setState(() {
           listenerOnlineMap = Map.from(map);
+          // Re-filter and sort when online status changes
+          _filterListeners();
         });
       }
     });
@@ -102,13 +104,46 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _filterListeners() {
+    List<listener_model.Listener> filtered;
+    
     if (selectedTopic == 'All') {
-      _filteredListeners = _listeners;
+      filtered = List.from(_listeners);
     } else {
-      _filteredListeners = _listeners.where((listener_model.Listener listener) {
+      filtered = _listeners.where((listener_model.Listener listener) {
         return listener.specialties.contains(selectedTopic);
       }).toList();
     }
+    
+    // Sort by online status: online listeners first, then by rating
+    filtered.sort((a, b) {
+      final aOnline = _isListenerOnline(a);
+      final bOnline = _isListenerOnline(b);
+      
+      if (aOnline && !bOnline) return -1; // a is online, b is offline -> a first
+      if (!aOnline && bOnline) return 1;  // a is offline, b is online -> b first
+      
+      // Both same status, sort by rating
+      return b.rating.compareTo(a.rating);
+    });
+    
+    _filteredListeners = filtered;
+  }
+  
+  /// Check if a listener is online using both API data and socket status
+  bool _isListenerOnline(listener_model.Listener listener) {
+    // Check socket map first (real-time status)
+    final userId = listener.userId;
+    final listenerId = listener.listenerId;
+    
+    if (listenerOnlineMap.containsKey(userId)) {
+      return listenerOnlineMap[userId]!;
+    }
+    if (listenerOnlineMap.containsKey(listenerId)) {
+      return listenerOnlineMap[listenerId]!;
+    }
+    
+    // Fall back to API status
+    return listener.isOnline;
   }
 
   @override
@@ -271,6 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 itemCount: _filteredListeners.length,
                                 itemBuilder: (context, index) {
                                   final listener = _filteredListeners[index];
+                                  final isOnline = _isListenerOnline(listener);
                                   return ExpertCard(
                                     name: listener.professionalName ?? 'Unknown',
                                     age: listener.age ?? 20,
@@ -282,6 +318,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     languages: listener.languages,
                                     listenerId: listener.listenerId,
                                     listenerUserId: listener.userId,
+                                    isOnline: isOnline,
                                   );
                                 },
                               ),

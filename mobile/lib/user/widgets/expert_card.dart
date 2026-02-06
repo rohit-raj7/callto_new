@@ -16,6 +16,7 @@ class ExpertCard extends StatefulWidget {
   final List<String> languages;
   final String? listenerId;
   final String? listenerUserId; // The user_id for socket communication
+  final bool isOnline; // Online status from parent (API + socket)
 
   const ExpertCard({
     super.key,
@@ -29,6 +30,7 @@ class ExpertCard extends StatefulWidget {
     this.languages = const ['Hindi', 'English'],
     this.listenerId,
     this.listenerUserId,
+    this.isOnline = false,
   });
 
   @override
@@ -46,9 +48,12 @@ class _ExpertCardState extends State<ExpertCard> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    print('[EXPERT_CARD] Init for listenerUserId: ${widget.listenerUserId}, listenerId: ${widget.listenerId}');
+    print('[EXPERT_CARD] Init for listenerUserId: ${widget.listenerUserId}, listenerId: ${widget.listenerId}, isOnline: ${widget.isOnline}');
     
-    // Initialize online status from the stream immediately if available
+    // Initialize online status from parent widget (API + socket status)
+    isListenerOnline = widget.isOnline;
+    
+    // Also check socket map for real-time updates
     final initialMap = SocketService().listenerOnlineMap;
     final id = widget.listenerUserId ?? widget.listenerId;
     if (id != null && initialMap.containsKey(id)) {
@@ -72,6 +77,17 @@ class _ExpertCardState extends State<ExpertCard> with SingleTickerProviderStateM
     
     // Ensure socket is connected to receive presence events
     _ensureSocketConnection();
+  }
+
+  @override
+  void didUpdateWidget(ExpertCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update online status if parent provides a new value
+    if (widget.isOnline != oldWidget.isOnline) {
+      setState(() {
+        isListenerOnline = widget.isOnline;
+      });
+    }
   }
 
   Future<void> _toggleVoice() async {

@@ -130,7 +130,7 @@ class Listener {
     const query = `
       SELECT l.*, u.phone_number, u.email, u.city, u.country, u.display_name,
         CASE 
-          WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '30 seconds' 
+          WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '2 minutes' 
           THEN true 
           ELSE false 
         END as is_online,
@@ -186,7 +186,7 @@ class Listener {
     let query = `
       SELECT l.*, u.city, u.country, u.display_name, u.email,
         CASE 
-          WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '30 seconds' 
+          WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '2 minutes' 
           THEN true 
           ELSE false 
         END as is_online
@@ -221,9 +221,9 @@ class Listener {
     // Filter by online status - filter based on calculated is_online
     if (filters.is_online !== undefined) {
       if (filters.is_online) {
-        query += ` AND l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '30 seconds'`;
+        query += ` AND l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '2 minutes'`;
       } else {
-        query += ` AND (l.last_active_at IS NULL OR (NOW() - l.last_active_at) > INTERVAL '30 seconds')`;
+        query += ` AND (l.last_active_at IS NULL OR (NOW() - l.last_active_at) > INTERVAL '2 minutes')`;
       }
     }
 
@@ -241,17 +241,21 @@ class Listener {
       paramIndex++;
     }
 
-    // Sort by rating or recency
+    // Sort by online status first (online listeners first), then by rating
     const sortBy = filters.sort_by || 'rating';
+    let orderClause = ' ORDER BY is_online DESC';
+    
     if (sortBy === 'rating') {
-      query += ' ORDER BY l.average_rating DESC, l.total_ratings DESC';
+      orderClause += ', l.average_rating DESC, l.total_ratings DESC';
     } else if (sortBy === 'recent') {
-      query += ' ORDER BY l.created_at DESC';
+      orderClause += ', l.created_at DESC';
     } else if (sortBy === 'price_low') {
-      query += ' ORDER BY l.rate_per_minute ASC';
+      orderClause += ', l.rate_per_minute ASC';
     } else if (sortBy === 'price_high') {
-      query += ' ORDER BY l.rate_per_minute DESC';
+      orderClause += ', l.rate_per_minute DESC';
     }
+    
+    query += orderClause;
 
     // Pagination
     const limit = filters.limit || 20;
@@ -269,7 +273,7 @@ class Listener {
     const query = `
       SELECT l.*, u.city, u.country, u.display_name,
         CASE 
-          WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '30 seconds' 
+          WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '2 minutes' 
           THEN true 
           ELSE false 
         END as is_online
@@ -284,7 +288,7 @@ class Listener {
             WHERE specialty ILIKE $1
           )
         )
-      ORDER BY l.average_rating DESC
+      ORDER BY is_online DESC, l.average_rating DESC
       LIMIT 20
     `;
     
@@ -312,7 +316,7 @@ class Listener {
         l.last_active_at,
         l.mobile_number,
         CASE 
-          WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '30 seconds' 
+          WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '2 minutes' 
           THEN true 
           ELSE false 
         END as is_online,
@@ -524,7 +528,7 @@ class Listener {
     let query = `
       SELECT l.*, u.city, u.country, u.display_name,
         CASE 
-          WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '30 seconds' 
+          WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '2 minutes' 
           THEN true 
           ELSE false 
         END as is_online
