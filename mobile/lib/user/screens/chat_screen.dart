@@ -340,7 +340,7 @@ class _ChatScreenState extends State<ChatScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+            bottom: BorderSide(color: Colors.pinkAccent.withOpacity(0.15), width: 1),
           ),
         ),
         child: Row(
@@ -350,11 +350,19 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 CircleAvatar(
                   radius: 28,
-                  backgroundColor: Colors.white,
-                  backgroundImage: chat.otherUserAvatar != null
+                  backgroundColor: const Color(0xFFFFF1F5),
+                  backgroundImage: (chat.otherUserAvatar != null &&
+                          chat.otherUserAvatar!.isNotEmpty)
                       ? NetworkImage(chat.otherUserAvatar!)
-                      : const AssetImage('assets/images/khushi.jpg')
-                          as ImageProvider,
+                      : null,
+                  onBackgroundImageError: (chat.otherUserAvatar != null &&
+                          chat.otherUserAvatar!.isNotEmpty)
+                      ? (_, __) {} // silently ignore network errors
+                      : null,
+                  child: (chat.otherUserAvatar == null ||
+                          chat.otherUserAvatar!.isEmpty)
+                      ? const Icon(Icons.person, size: 30, color: Colors.pinkAccent)
+                      : null,
                 ),
                 Positioned(
                   right: 0,
