@@ -47,7 +47,7 @@ class PrivacyPolicyPage extends StatelessWidget {
                       child: Padding(
                         padding: const EdgeInsets.all(12),
                         child: Image.asset(
-                          'assets/login/logo.png',
+                          'assets/login/homelogo.png',
                           fit: BoxFit.contain,
                         ),
                       ),

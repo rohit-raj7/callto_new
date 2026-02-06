@@ -10,7 +10,7 @@
     <application
         android:label="call_u"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/homelogo"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"

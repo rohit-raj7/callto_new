@@ -518,7 +518,7 @@ class _SplashScreenState extends State<SplashScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
-              'assets/login/logo.png',
+              'assets/login/homelogo.png',
               height: 100,
               errorBuilder: (context, error, stackTrace) {
                 return const Icon(

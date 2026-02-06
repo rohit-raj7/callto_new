@@ -374,7 +374,7 @@ class _LoginScreenState extends State with TickerProviderStateMixin {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // Header section
-                      _buildHeaderSection(screenHeight),
+                      _buildHeaderSection(screenHeight, screenWidth),
 
                       SizedBox(height: screenHeight * 0.03),
 
@@ -396,7 +396,14 @@ class _LoginScreenState extends State with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildHeaderSection(double screenHeight) {
+  Widget _buildHeaderSection(double screenHeight, double screenWidth) {
+    final double baseLogoSize = screenHeight * 0.12;
+    final double maxByWidth = screenWidth * 0.35;
+    final double cappedLogoSize =
+        baseLogoSize.clamp(80.0, 160.0).toDouble();
+    final double logoSize =
+        cappedLogoSize <= maxByWidth ? cappedLogoSize : maxByWidth;
+
     return Column(
       children: [
         // Logo only
@@ -412,8 +419,8 @@ class _LoginScreenState extends State with TickerProviderStateMixin {
             ],
           ),
           child: _buildImageAsset(
-            'assets/login/logo.png',
-            screenHeight * 0.08,
+            'assets/login/homelogo.png',
+            logoSize,
             isLogo: true,
           ),
         ),
