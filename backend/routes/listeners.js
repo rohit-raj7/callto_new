@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
     const filters = {
       specialty: req.query.specialty,
       language: req.query.language,
-      is_online: req.query.is_online === 'true',
+      is_online: req.query.is_online !== undefined ? req.query.is_online === 'true' : undefined,
       min_rating: req.query.min_rating ? parseFloat(req.query.min_rating) : undefined,
       city: req.query.city,
       sort_by: req.query.sort_by || 'rating',
