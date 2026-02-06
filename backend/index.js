@@ -25,6 +25,7 @@ import callRoutes from './routes/calls.js';
 import createChatsRouter from './routes/chats.js';
 import adminRoutes from './routes/admin.js';
 import User from './models/User.js';
+import { Chat, Message } from './models/Chat.js';
 
 // ============================================
 // MIDDLEWARE
@@ -334,7 +335,6 @@ io.on('connection', (socket) => {
 
     // Fetch and send chat history
     try {
-      const { Chat, Message } = await import('./models/Chat.js');
       const messages = await Message.getChatMessages(chatId, 50, 0);
       socket.emit('chat:history', {
         chatId,
@@ -409,9 +409,7 @@ io.on('connection', (socket) => {
     }
 
     try {
-      const { Chat, Message } = await import('./models/Chat.js');
-      
-      // Save message to database
+      // Save message to database (Chat & Message already imported at module level)
       const message = await Message.create({
         chat_id: chatId,
         sender_id: socket.userId,
@@ -429,29 +427,25 @@ io.on('connection', (socket) => {
         }
       };
 
-      // Broadcast message to all users in the chat room (real-time UI update)
+      // Broadcast message to all users in the chat room IMMEDIATELY (real-time UI update)
       io.to(`chat_${chatId}`).emit('chat:message', messageData);
 
-      // WhatsApp-style: Only send notification if other user is NOT actively viewing this chat
-      const chat = await Chat.findById(chatId);
-      if (chat) {
-        const otherUserId = chat.user1_id === socket.userId ? chat.user2_id : chat.user1_id;
-        const otherUserState = userChatState.get(otherUserId);
-        
-        // Check if other user is actively viewing this chat
-        const isOtherUserViewingThisChat = otherUserState && 
-          otherUserState.appState === 'foreground' && 
-          otherUserState.activelyViewingChatId === chatId;
-        
-        if (isOtherUserViewingThisChat) {
-          // User is viewing this chat - NO notification needed
-          console.log(`[SOCKET] User ${otherUserId} is viewing chat ${chatId} - skipping notification`);
-        } else {
-          // User is NOT viewing this chat - send notification
-          io.to(`user_${otherUserId}`).emit('chat:new_message_notification', messageData);
-          console.log(`[SOCKET] Sent notification to user_${otherUserId} (state: ${otherUserState?.appState || 'unknown'}, viewing: ${otherUserState?.activelyViewingChatId || 'none'})`);
+      // Send notification to offline/non-viewing users asynchronously (don't block)
+      Chat.findById(chatId).then(chat => {
+        if (chat) {
+          const otherUserId = chat.user1_id === socket.userId ? chat.user2_id : chat.user1_id;
+          const otherUserState = userChatState.get(otherUserId);
+          
+          const isOtherUserViewingThisChat = otherUserState && 
+            otherUserState.appState === 'foreground' && 
+            otherUserState.activelyViewingChatId === chatId;
+          
+          if (!isOtherUserViewingThisChat) {
+            io.to(`user_${otherUserId}`).emit('chat:new_message_notification', messageData);
+            console.log(`[SOCKET] Sent notification to user_${otherUserId}`);
+          }
         }
-      }
+      }).catch(err => console.error('[SOCKET] Notification error:', err));
 
       console.log(`[SOCKET] Message sent in chat ${chatId} by ${socket.userId}`);
     } catch (error) {
@@ -480,7 +474,6 @@ io.on('connection', (socket) => {
     if (!chatId || !socket.userId) return;
 
     try {
-      const { Message } = await import('./models/Chat.js');
       await Message.markAsRead(chatId, socket.userId);
       
       // Notify the other user that messages were read
@@ -506,8 +499,6 @@ io.on('connection', (socket) => {
     }
 
     try {
-      const { Message } = await import('./models/Chat.js');
-      
       // Delete message from database (validates sender ownership)
       const result = await Message.delete(messageId, senderId);
       
