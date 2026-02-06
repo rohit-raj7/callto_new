@@ -6,6 +6,7 @@ import {
   UserCheck, MessageCircle, Sparkles, Clock, Shuffle, Headphones, Heart
 } from 'lucide-react';
 import PublicNavbar from '../components/PublicNavbar';
+import downloadApp from '../assets/downloadApp.svg';
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -74,8 +75,9 @@ const LandingPage = () => {
             >
               <Sparkles className="w-4 h-4 text-pink-600" />
               <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Talk to Someone Who Understands
+                Talk to Someone Who Understands You 
               </span>
+               <Sparkles className="w-4 h-4 text-pink-600" />
             </motion.div>
 
             <motion.h1
@@ -108,18 +110,21 @@ const LandingPage = () => {
                 whileTap={{ scale: 0.95 }}
                 className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all flex items-center space-x-2 group"
               >
-                <span>Start Talking Now</span>
+                <span>Download App</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </motion.button>
               
-              <motion.button
+              <motion.a
+                href="https://play.google.com/store"
+                target="_blank"
+                rel="noopener noreferrer"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-                className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all border-2 border-gray-200 dark:border-gray-700"
+                className="bg-white dark:bg-gray-800 px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all border border-gray-200 dark:border-gray-700 flex items-center justify-center"
               >
-                Learn More
-              </motion.button>
+                {/* Play Store Badge */}
+                <img src={downloadApp} alt="Get it on Play Store" className="h-12 w-auto" />
+              </motion.a>
             </motion.div>
 
             {/* Stats */}
@@ -590,6 +595,18 @@ const LandingPage = () => {
                 Cookie Policy
               </Link>
             </div>
+
+            {/* Play Store Button */}
+            <motion.a
+              href="https://play.google.com/store"
+              target="_blank"
+              rel="noopener noreferrer"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="bg-white dark:bg-gray-800 px-5 py-2.5 rounded-xl shadow hover:shadow-md transition-all border border-gray-200 dark:border-gray-700 flex items-center justify-center"
+            >
+              <img src={downloadApp} alt="Get it on Play Store" className="h-10 w-auto" />
+            </motion.a>
             
             {/* Copyright */}
             <p className="text-sm text-gray-500">
