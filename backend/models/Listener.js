@@ -281,7 +281,12 @@ class Listener {
           WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '2 minutes' 
           THEN true 
           ELSE false 
-        END as is_online
+        END as is_online,
+        CASE 
+          WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '2 minutes' 
+          THEN 1 
+          ELSE 0 
+        END as online_sort
       FROM listeners l
       JOIN users u ON l.user_id = u.user_id
       WHERE u.is_active = TRUE
@@ -293,7 +298,7 @@ class Listener {
             WHERE specialty ILIKE $1
           )
         )
-      ORDER BY is_online DESC, l.average_rating DESC
+      ORDER BY online_sort DESC, l.average_rating DESC
       LIMIT 20
     `;
     
