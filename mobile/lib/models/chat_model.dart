@@ -38,8 +38,15 @@ class Chat {
       otherUserName: json['other_user_name'],
       otherUserAvatar: json['other_user_avatar'],
       lastMessage: json['last_message'],
-      unreadCount: json['unread_count'] ?? 0,
+      unreadCount: _parseInt(json['unread_count']),
     );
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 
   Map<String, dynamic> toJson() {
@@ -89,13 +96,21 @@ class Message {
       messageType: json['message_type'] ?? 'text',
       messageContent: json['message_content'] ?? '',
       mediaUrl: json['media_url'],
-      isRead: json['is_read'] ?? false,
+      isRead: _parseBool(json['is_read']),
       createdAt: json['created_at'] != null 
           ? DateTime.tryParse(json['created_at']) 
           : null,
       senderName: json['sender_name'],
       senderAvatar: json['sender_avatar'],
     );
+  }
+
+  static bool _parseBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true' || value == '1';
+    if (value is int) return value == 1;
+    return false;
   }
 
   Map<String, dynamic> toJson() {

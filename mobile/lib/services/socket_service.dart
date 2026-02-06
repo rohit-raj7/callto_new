@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'api_config.dart';
 import 'storage_service.dart';
+import 'chat_state_manager.dart';
 
 /// Incoming call data model
 class IncomingCall {
@@ -62,7 +63,7 @@ class IncomingCall {
 
 /// Socket service for real-time communication
 class SocketService {
-    // Private controller fields
+    // Private controller fields - Call related
     StreamController<IncomingCall>? _incomingCallController;
     StreamController<Map<String, dynamic>>? _callAcceptedController;
     StreamController<Map<String, dynamic>>? _callRejectedController;
@@ -71,18 +72,39 @@ class SocketService {
     StreamController<bool>? _connectionStateController;
     StreamController<String>? _userOnlineController;
     StreamController<String>? _userOfflineController;
+    
+    // Private controller fields - Chat related
+    StreamController<Map<String, dynamic>>? _chatMessageController;
+    StreamController<Map<String, dynamic>>? _chatHistoryController;
+    StreamController<Map<String, dynamic>>? _chatTypingController;
+    StreamController<Map<String, dynamic>>? _chatReadController;
+    StreamController<Map<String, dynamic>>? _chatErrorController;
+    StreamController<Map<String, dynamic>>? _chatNotificationController;
+    
   static final SocketService _instance = SocketService._internal();
   factory SocketService() => _instance;
   SocketService._internal();
 
   IO.Socket? _socket;
   final StorageService _storage = StorageService();
+  final ChatStateManager _chatStateManager = ChatStateManager();
   bool _isConnected = false;
   String? _listenerUserId;
   final Map<String, bool> listenerOnlineMap = {}; // Tracks all listeners' online status
   final StreamController<Map<String, bool>> _listenerStatusController = StreamController.broadcast();
   bool _connecting = false;
   bool _listenerRegistered = false;
+  
+  // Track joined chat rooms
+  final Set<String> _joinedChatRooms = {};
+  
+  // Track which chat room user is actively viewing (for notification suppression)
+  String? _activelyViewingChatId;
+  
+  // User info for chat
+  String? _userName;
+  String? _userAvatar;
+  
   void _log(String msg) {
     print('[SOCKET] $msg');
   }
@@ -130,7 +152,38 @@ class SocketService {
     return _userOfflineController!;
   }
 
-  // Public streams
+  // Chat-related getters for lazy controller creation
+  StreamController<Map<String, dynamic>> get _chatMessage {
+    _chatMessageController ??= StreamController<Map<String, dynamic>>.broadcast();
+    return _chatMessageController!;
+  }
+
+  StreamController<Map<String, dynamic>> get _chatHistory {
+    _chatHistoryController ??= StreamController<Map<String, dynamic>>.broadcast();
+    return _chatHistoryController!;
+  }
+
+  StreamController<Map<String, dynamic>> get _chatTyping {
+    _chatTypingController ??= StreamController<Map<String, dynamic>>.broadcast();
+    return _chatTypingController!;
+  }
+
+  StreamController<Map<String, dynamic>> get _chatRead {
+    _chatReadController ??= StreamController<Map<String, dynamic>>.broadcast();
+    return _chatReadController!;
+  }
+
+  StreamController<Map<String, dynamic>> get _chatError {
+    _chatErrorController ??= StreamController<Map<String, dynamic>>.broadcast();
+    return _chatErrorController!;
+  }
+
+  StreamController<Map<String, dynamic>> get _chatNotification {
+    _chatNotificationController ??= StreamController<Map<String, dynamic>>.broadcast();
+    return _chatNotificationController!;
+  }
+
+  // Public streams - Call related
   Stream<IncomingCall> get onIncomingCall => _incomingCall.stream;
   Stream<Map<String, dynamic>> get onCallAccepted => _callAccepted.stream;
   Stream<Map<String, dynamic>> get onCallRejected => _callRejected.stream;
@@ -139,6 +192,14 @@ class SocketService {
   Stream<bool> get onConnectionStateChange => _connectionState.stream;
   Stream<String> get onUserOnline => _userOnline.stream;
   Stream<String> get onUserOffline => _userOffline.stream;
+
+  // Public streams - Chat related
+  Stream<Map<String, dynamic>> get onChatMessage => _chatMessage.stream;
+  Stream<Map<String, dynamic>> get onChatHistory => _chatHistory.stream;
+  Stream<Map<String, dynamic>> get onChatTyping => _chatTyping.stream;
+  Stream<Map<String, dynamic>> get onChatMessagesRead => _chatRead.stream;
+  Stream<Map<String, dynamic>> get onChatError => _chatError.stream;
+  Stream<Map<String, dynamic>> get onChatNotification => _chatNotification.stream;
 
   bool get isConnected => _socket?.connected ?? false;
   
@@ -190,14 +251,30 @@ class SocketService {
       _log('Socket connected: id=${_socket!.id}');
       _connectionState.add(true);
       
-      // Always join as user
+      // Update ChatStateManager with current user ID
+      _chatStateManager.setCurrentUserId(userId);
+      
+      // Always join as user - send user data for chat functionality
       _log('Emitting user:join $userId');
-      _socket!.emit('user:join', userId);
+      _socket!.emit('user:join', {
+        'userId': userId,
+        'userName': _userName,
+        'userAvatar': _userAvatar,
+        'activelyViewingChatId': _activelyViewingChatId, // For notification suppression
+      });
       
       // Also join as listener if we were a listener
       if (_listenerOnline) {
         _log('Emitting listener:join $userId');
         _socket!.emit('listener:join', userId);
+      }
+      
+      // Re-join any chat rooms we were in
+      for (final chatId in _joinedChatRooms) {
+        _socket!.emit('chat:join', {
+          'chatId': chatId,
+          'isActivelyViewing': chatId == _activelyViewingChatId,
+        });
       }
       
       if (_connectionCompleter != null && !_connectionCompleter!.isCompleted) {
@@ -272,6 +349,85 @@ class SocketService {
       _callConnected.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
     });
 
+    // --- CHAT EVENT LISTENERS ---
+    // WhatsApp-style: chat:message is for real-time UI updates when user is in chat room
+    _socket!.on('chat:message', (data) {
+      _log('Chat message received: $data');
+      try {
+        final messageData = data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data);
+        final chatId = messageData['chatId']?.toString();
+        
+        // Always emit to the stream - ChatPage will handle displaying it
+        _chatMessage.add(messageData);
+        
+        _log('Message for chat $chatId, activelyViewing: $_activelyViewingChatId');
+      } catch (e) {
+        _log('Error parsing chat:message: $e');
+      }
+    });
+
+    _socket!.on('chat:history', (data) {
+      _log('Chat history received');
+      try {
+        final historyData = data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data);
+        _chatHistory.add(historyData);
+      } catch (e) {
+        _log('Error parsing chat:history: $e');
+      }
+    });
+
+    _socket!.on('chat:user_typing', (data) {
+      _log('User typing event: $data');
+      try {
+        final typingData = data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data);
+        _chatTyping.add(typingData);
+      } catch (e) {
+        _log('Error parsing chat:user_typing: $e');
+      }
+    });
+
+    _socket!.on('chat:messages_read', (data) {
+      _log('Messages read event: $data');
+      try {
+        final readData = data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data);
+        _chatRead.add(readData);
+      } catch (e) {
+        _log('Error parsing chat:messages_read: $e');
+      }
+    });
+
+    _socket!.on('chat:error', (data) {
+      _log('Chat error: $data');
+      try {
+        final errorData = data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data);
+        _chatError.add(errorData);
+      } catch (e) {
+        _log('Error parsing chat:error: $e');
+      }
+    });
+
+    // Listen for new message notifications (for chat list updates)
+    // WhatsApp-style: Only process notification if NOT actively viewing that chat
+    _socket!.on('chat:new_message_notification', (data) {
+      _log('New message notification received: $data');
+      try {
+        final notificationData = data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data);
+        final chatId = notificationData['chatId']?.toString();
+        
+        // Check if user is actively viewing this chat - if so, don't emit notification
+        final shouldNotify = _chatStateManager.shouldShowNotification(chatId ?? '');
+        
+        if (shouldNotify) {
+          _log('Emitting notification - user not viewing chat $chatId');
+          _chatNotification.add(notificationData);
+        } else {
+          _log('Suppressing notification - user viewing chat $chatId');
+        }
+      } catch (e) {
+        _log('Error parsing chat:new_message_notification: $e');
+      }
+    });
+
     _socket!.connect();
     _connecting = false;
     return true;
@@ -310,46 +466,116 @@ class SocketService {
   set listenerOnline(bool value) => _listenerOnline = value;
 
   /// Set listener online/offline and update presence
+  /// CRITICAL: This controls whether listener can receive incoming calls
   Future<void> setListenerOnline(bool online) async {
     listenerOnline = online;
+    final userId = await _storage.getUserId();
+    
     if (!online) {
-      // Emit offline event immediately
-      final userId = await _storage.getUserId();
+      // Listener going offline - emit offline event but keep socket for chat
       if (_socket != null && _socket!.connected && userId != null) {
-        print('[LISTENER] Emitting user:offline for userId: $userId');
-        _socket!.emit('user:offline', { 'userId': userId });
+        print('[LISTENER] Going offline, emitting listener:offline for userId: $userId');
+        _socket!.emit('listener:offline', { 'listenerUserId': userId });
       }
-      disconnect();
+      // NOTE: Don't disconnect socket - keep it for chat functionality
     } else {
-      // Connect and emit online event
+      // Listener going online - connect socket and emit online events
       print('[LISTENER] Going online, connecting socket...');
       final connected = await connect();
-      if (connected && _socket != null && _socket!.connected) {
-        final userId = await _storage.getUserId();
-        if (userId != null) {
-          print('[LISTENER] Explicitly emitting user:join and listener:join for userId: $userId');
-          _socket!.emit('user:join', userId);
+      if (connected && _socket != null && _socket!.connected && userId != null) {
+        print('[LISTENER] Socket connected, emitting user:join and listener:join for userId: $userId');
+        _socket!.emit('user:join', {
+          'userId': userId,
+          'userName': _userName,
+          'userAvatar': _userAvatar,
+        });
+        _socket!.emit('listener:join', userId);
+      }
+    }
+  }
+
+  /// Handle app going to background - notify server and update state
+  /// WhatsApp-style: Keep socket connected but notify of background state
+  /// IMPORTANT: For listeners, keep socket connected to receive incoming calls
+  Future<void> onAppBackground() async {
+    _log('App going to background');
+    _chatStateManager.appPaused();
+    
+    final userId = await _storage.getUserId();
+    if (_socket != null && _socket!.connected && userId != null) {
+      // Notify server that user is in background (for notification decisions)
+      _socket!.emit('user:app_state', {
+        'userId': userId,
+        'state': 'background',
+        'activelyViewingChatId': null, // No longer actively viewing any chat
+      });
+      
+      // CRITICAL FIX: For listeners, keep socket connected to receive incoming calls
+      // Only notify background state, but DO NOT disconnect or emit offline
+      if (listenerOnline) {
+        _log('Listener going to background - keeping socket connected for incoming calls');
+        // Keep socket connected! Listener should still receive calls in background
+        // Just notify server about background state (already done above)
+      }
+      // For regular users, we could disconnect but WhatsApp-style keeps connected
+      // so chat messages arrive in real-time
+    }
+  }
+
+  /// Handle app coming to foreground - reconnect if needed and update state
+  /// WhatsApp-style: Restore socket connection and notify server
+  Future<void> onAppForeground() async {
+    _log('App coming to foreground');
+    _chatStateManager.appResumed();
+    
+    // Always try to connect when app comes to foreground
+    final connected = await connect();
+    
+    if (connected && _socket != null && _socket!.connected) {
+      final userId = await _storage.getUserId();
+      if (userId != null) {
+        // Notify server that user is in foreground
+        _socket!.emit('user:app_state', {
+          'userId': userId,
+          'state': 'foreground',
+          'activelyViewingChatId': _activelyViewingChatId,
+        });
+        
+        // CRITICAL: For listeners, always re-emit listener:join to ensure online status
+        // This ensures listener is marked online in backend's listenerSockets map
+        if (listenerOnline) {
+          _log('Listener coming to foreground - re-emitting listener:join');
+          _socket!.emit('user:join', {
+            'userId': userId,
+            'userName': _userName,
+            'userAvatar': _userAvatar,
+          });
           _socket!.emit('listener:join', userId);
         }
       }
     }
   }
 
-  /// Handle app going to background - disconnect socket to mark offline quickly
-  Future<void> onAppBackground() async {
-    if (listenerOnline) {
-      final userId = await _storage.getUserId();
-      if (_socket != null && _socket!.connected && userId != null) {
-        _socket!.emit('user:offline', { 'userId': userId });
-      }
-      disconnect();
+  /// Emit user online status (for regular users, not just listeners)
+  Future<void> emitUserOnline() async {
+    final userId = await _storage.getUserId();
+    if (_socket != null && _socket!.connected && userId != null) {
+      _log('Emitting user:online for $userId');
+      _socket!.emit('user:join', {
+        'userId': userId,
+        'userName': _userName,
+        'userAvatar': _userAvatar,
+        'activelyViewingChatId': _activelyViewingChatId,
+      });
     }
   }
 
-  /// Handle app coming to foreground - reconnect if was online
-  Future<void> onAppForeground() async {
-    if (listenerOnline) {
-      await connect();
+  /// Emit user offline status (for regular users, not just listeners)
+  Future<void> emitUserOffline() async {
+    final userId = await _storage.getUserId();
+    if (_socket != null && _socket!.connected && userId != null) {
+      _log('Emitting user:offline for $userId');
+      _socket!.emit('user:offline', { 'userId': userId });
     }
   }
 
@@ -445,10 +671,145 @@ class SocketService {
     });
   }
 
+  // ============================================
+  // CHAT METHODS
+  // ============================================
+
+  /// Set user info for chat messages
+  void setUserInfo({String? userName, String? userAvatar}) {
+    _userName = userName;
+    _userAvatar = userAvatar;
+  }
+
+  /// Join a chat room AND start actively viewing it (WhatsApp-style)
+  /// This will suppress notifications for this chat while it's open
+  void joinChatRoom(String chatId) {
+    if (_socket == null || !_isConnected) {
+      _log('Cannot join chat room - socket not connected');
+      return;
+    }
+
+    // Track that we're actively viewing this chat
+    _activelyViewingChatId = chatId;
+    _chatStateManager.enterChatScreen(chatId);
+
+    if (_joinedChatRooms.contains(chatId)) {
+      _log('Already in chat room: $chatId, updating active viewing status');
+      // Still emit to let server know we're actively viewing
+      _socket!.emit('chat:set_active_viewing', {
+        'chatId': chatId,
+        'isActivelyViewing': true,
+      });
+      return;
+    }
+
+    _log('Joining chat room: $chatId (actively viewing)');
+    _socket!.emit('chat:join', {
+      'chatId': chatId,
+      'isActivelyViewing': true,
+    });
+    _joinedChatRooms.add(chatId);
+  }
+
+  /// Leave a chat room AND stop actively viewing it
+  void leaveChatRoom(String chatId) {
+    if (_socket == null || !_isConnected) {
+      _log('Cannot leave chat room - socket not connected');
+      return;
+    }
+
+    // Clear active viewing state
+    if (_activelyViewingChatId == chatId) {
+      _activelyViewingChatId = null;
+      _chatStateManager.leaveChatScreen();
+    }
+
+    _log('Leaving chat room: $chatId');
+    _socket!.emit('chat:leave', {'chatId': chatId});
+    _joinedChatRooms.remove(chatId);
+  }
+
+  /// Leave all chat rooms
+  void leaveAllChatRooms() {
+    for (final chatId in _joinedChatRooms.toList()) {
+      leaveChatRoom(chatId);
+    }
+    _activelyViewingChatId = null;
+    _chatStateManager.leaveChatScreen();
+  }
+
+  /// Set the actively viewing chat without joining/leaving room
+  /// Useful when navigating to chat from notification
+  void setActivelyViewingChat(String? chatId) {
+    _activelyViewingChatId = chatId;
+    if (chatId != null) {
+      _chatStateManager.enterChatScreen(chatId);
+      // Notify server
+      if (_socket != null && _isConnected) {
+        _socket!.emit('chat:set_active_viewing', {
+          'chatId': chatId,
+          'isActivelyViewing': true,
+        });
+      }
+    } else {
+      _chatStateManager.leaveChatScreen();
+    }
+  }
+
+  /// Get the currently active chat ID
+  String? get activelyViewingChatId => _activelyViewingChatId;
+
+  /// Send a chat message
+  void sendChatMessage({
+    required String chatId,
+    required String content,
+    String messageType = 'text',
+    String? mediaUrl,
+  }) {
+    if (_socket == null || !_isConnected) {
+      _log('Cannot send message - socket not connected');
+      _chatError.add({'error': 'Not connected to server'});
+      return;
+    }
+
+    _log('Sending message to chat: $chatId');
+    _socket!.emit('chat:send', {
+      'chatId': chatId,
+      'content': content,
+      'messageType': messageType,
+      if (mediaUrl != null) 'mediaUrl': mediaUrl,
+    });
+  }
+
+  /// Send typing indicator
+  void sendTypingIndicator({required String chatId, required bool isTyping}) {
+    if (_socket == null || !_isConnected) return;
+
+    _socket!.emit('chat:typing', {
+      'chatId': chatId,
+      'isTyping': isTyping,
+    });
+  }
+
+  /// Mark chat messages as read
+  void markChatAsRead(String chatId) {
+    if (_socket == null || !_isConnected) return;
+
+    _log('Marking chat as read: $chatId');
+    _socket!.emit('chat:read', {'chatId': chatId});
+  }
+
+  /// Check if connected to a specific chat room
+  bool isInChatRoom(String chatId) => _joinedChatRooms.contains(chatId);
+
+  /// Get list of joined chat rooms
+  Set<String> get joinedChatRooms => Set.unmodifiable(_joinedChatRooms);
+
   /// Dispose all resources - Note: For singleton, we just disconnect, don't close controllers
   /// since they may be reused. Controllers are recreated lazily if needed.
   void dispose() {
     disconnect();
+    _joinedChatRooms.clear();
     // Close and null out controllers so they can be recreated
     _incomingCallController?.close();
     _incomingCallController = null;
@@ -466,5 +827,18 @@ class SocketService {
     _userOnlineController = null;
     _userOfflineController?.close();
     _userOfflineController = null;
+    // Chat controllers
+    _chatMessageController?.close();
+    _chatMessageController = null;
+    _chatHistoryController?.close();
+    _chatHistoryController = null;
+    _chatTypingController?.close();
+    _chatTypingController = null;
+    _chatReadController?.close();
+    _chatReadController = null;
+    _chatErrorController?.close();
+    _chatErrorController = null;
+    _chatNotificationController?.close();
+    _chatNotificationController = null;
   }
 }

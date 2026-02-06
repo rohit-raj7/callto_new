@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, Phone } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import logo from '../assets/logo.png';
 
 const PublicNavbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -46,12 +47,12 @@ const PublicNavbar = () => {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <Link to="/" className="flex items-center space-x-2 group">
-              <div className="bg-gradient-to-r from-pink-500 to-rose-500 p-2 rounded-lg group-hover:scale-110 transition-transform">
-                <Phone className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-pink-500 to-rose-500 bg-clip-text text-transparent">
-                Callto
-              </span>
+              <img 
+                src={logo} 
+                alt="Callto" 
+                className="h-10 w-auto object-contain group-hover:scale-105 transition-transform" 
+              />
+             
             </Link>
 
             {/* Desktop Navigation */}

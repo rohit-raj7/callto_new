@@ -3,6 +3,7 @@ import '../screens/home_screen.dart';
 import '../screens/chat_screen.dart';
 import '../screens/recents_screen.dart';
 import '../../services/incoming_call_overlay_service.dart';
+import '../../services/socket_service.dart';
 
 class BottomNavBar extends StatefulWidget {
   const BottomNavBar({super.key});
@@ -14,6 +15,7 @@ class BottomNavBar extends StatefulWidget {
 class _BottomNavBarState extends State<BottomNavBar> {
   int _currentIndex = 0;
   final IncomingCallOverlayService _overlayService = IncomingCallOverlayService();
+  final SocketService _socketService = SocketService();
 
   final List<Widget> _screens = const [
     HomeScreen(), 
@@ -24,14 +26,23 @@ class _BottomNavBarState extends State<BottomNavBar> {
   @override
   void initState() {
     super.initState();
-    // Initialize overlay service after first frame
+    // Initialize overlay service and ensure listener is marked online
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeOverlayService();
+      _initializeListenerServices();
     });
   }
   
-  Future<void> _initializeOverlayService() async {
+  /// Initialize listener services for incoming calls
+  /// CRITICAL: This ensures listener stays online while navigating between pages
+  Future<void> _initializeListenerServices() async {
+    // Initialize overlay service with current context
     await _overlayService.initialize(context);
+    
+    // CRITICAL: Ensure listener is marked online when using the app
+    // This call emits listener:join to backend, marking listener as available for calls
+    await _socketService.setListenerOnline(true);
+    
+    print('[LISTENER NAV] Listener services initialized, marked as online');
   }
 
   @override

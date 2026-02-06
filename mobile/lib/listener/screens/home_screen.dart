@@ -41,7 +41,11 @@ class _HomeScreenState extends State<HomeScreen>
     }
     _setupCallsListener();
     _startHeartbeat(); // Start heartbeat
-    SocketService().setListenerOnline(true); // Set listener online and connect socket
+    
+    // CRITICAL: Ensure listener:join is emitted when home screen loads
+    // This marks listener as online in backend's listenerSockets map
+    SocketService().setListenerOnline(true);
+    
     _listenerUserId = null;
     // Get listenerUserId once
     StorageService().getUserId().then((id) {
@@ -75,14 +79,21 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // NOTE: Main lifecycle handling is done in main.dart at app-level
+    // This is kept for home-screen specific UI updates only
     if (_listenerUserId == null) return;
     switch (state) {
       case AppLifecycleState.resumed:
+        // Re-emit listener:join to ensure online status after resume
         SocketService().emitListenerOnline();
+        // Restart heartbeat
+        _startHeartbeat();
         break;
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-        SocketService().emitListenerOffline();
+        // NOTE: Don't emit offline here - handled in main.dart
+        // Listener stays online in background to receive calls
+        _heartbeatTimer?.cancel();
         break;
       default:
         break;
