@@ -443,6 +443,7 @@ io.on('connection', (socket) => {
       };
 
       // Broadcast message to all users in the chat room IMMEDIATELY (real-time UI update)
+      console.log(`[SOCKET] chat:send timestamp debug: raw=${message.created_at}, type=${typeof message.created_at}, isDate=${message.created_at instanceof Date}, final=${messageData.message.created_at}`);
       io.to(`chat_${chatId}`).emit('chat:message', messageData);
 
       // Send notification to offline/non-viewing users asynchronously (don't block)

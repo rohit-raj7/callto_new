@@ -207,6 +207,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         final message = Message.fromJson(messageData);
         
         print('[ChatPage-Listener] Received message from socket: ${message.messageContent} (senderId: ${message.senderId})');
+        print('[ChatPage-Listener] TIMESTAMP DEBUG: raw=${messageData['created_at']}, parsed=${message.createdAt}, isUtc=${message.createdAt?.isUtc}, local=${message.createdAt?.toLocal()}');
         
         setState(() {
           // Check if this is confirmation of our own message (replace optimistic)
