@@ -163,6 +163,8 @@ io.on('connection', (socket) => {
   });
 
   // Listener specific join (for availability tracking)
+  // CRITICAL: This is what makes a listener available to receive calls
+  // Must be emitted when listener app is open (any page)
   socket.on('listener:join', (listenerUserId) => {
     if (!listenerUserId) return;
     socket.userId = listenerUserId; // Sync with userId
@@ -172,42 +174,59 @@ io.on('connection', (socket) => {
     if (listenerSockets.has(listenerUserId)) {
       const oldSocketId = listenerSockets.get(listenerUserId);
       if (oldSocketId && oldSocketId !== socket.id) {
+        console.log(`[SOCKET] listener:join: Removing old socket ${oldSocketId} for listener ${listenerUserId}`);
         const oldSocket = io.sockets.sockets.get(oldSocketId);
         if (oldSocket) oldSocket.disconnect(true);
       }
     }
     
+    // Register listener as available for calls
     listenerSockets.set(listenerUserId, socket.id);
     connectedUsers.set(listenerUserId, socket.id); // Also ensure in connectedUsers
     
     io.emit('listener_status', { listenerUserId, online: true, timestamp: Date.now() });
-    console.log(`[SOCKET] Listener joined: ${listenerUserId}`);
+    console.log(`[SOCKET] listener:join: ✓ Listener ${listenerUserId} is now ONLINE (socket: ${socket.id})`);
+    console.log(`[SOCKET] listener:join: Total online listeners: ${listenerSockets.size}`);
   });
 
-  // Explicit offline event
+  // Explicit offline event - listener manually going offline
+  // NOTE: This should only be called when listener explicitly goes offline,
+  // NOT when navigating between pages in the app
   socket.on('listener:offline', (data) => {
     const { listenerUserId } = data || {};
     if (listenerUserId) {
       listenerSockets.delete(listenerUserId);
       io.emit('listener_status', { listenerUserId, online: false, timestamp: Date.now() });
-      console.log(`[SOCKET] Listener offline: ${listenerUserId}`);
+      console.log(`[SOCKET] listener:offline: ✓ Listener ${listenerUserId} manually went OFFLINE`);
     }
   });
 
   // 2. CALL HANDLING
 
   // Initiate call: User -> Listener
+  // CRITICAL: This checks if listener is online by looking for their socket
+  // Listener is online if they have an entry in listenerSockets OR connectedUsers
   socket.on('call:initiate', (data) => {
     const { listenerId, ...callData } = data || {};
+    
     // Check both maps for the listener's socket
+    // listenerSockets: explicitly registered as listener (listener:join)
+    // connectedUsers: any connected user (user:join)
     const listenerSocketId = listenerSockets.get(listenerId) || connectedUsers.get(listenerId);
     
+    console.log(`[SOCKET] call:initiate: Looking for listener ${listenerId}`);
+    console.log(`[SOCKET] call:initiate: listenerSockets has: ${listenerSockets.has(listenerId)}`);
+    console.log(`[SOCKET] call:initiate: connectedUsers has: ${connectedUsers.has(listenerId)}`);
+    console.log(`[SOCKET] call:initiate: Found socketId: ${listenerSocketId || 'NONE'}`);
+    
     if (listenerSocketId) {
+      // Listener is online - forward the call
       io.to(listenerSocketId).emit('incoming-call', callData);
-      console.log(`[SOCKET] call:initiate: Forwarded to listener ${listenerId}`);
+      console.log(`[SOCKET] call:initiate: ✓ Forwarded to listener ${listenerId} (socket: ${listenerSocketId})`);
     } else {
-      console.log(`[SOCKET] call:initiate: Listener ${listenerId} NOT online`);
-      // Optionally notify the caller that the listener is offline
+      // Listener is not connected
+      console.log(`[SOCKET] call:initiate: ✗ Listener ${listenerId} NOT online (no socket found)`);
+      // Notify the caller that the listener is offline
       socket.emit('call:failed', { callId: callData.callId, reason: 'listener_offline' });
     }
   });
