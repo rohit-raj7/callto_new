@@ -7,7 +7,7 @@ import morgan from 'morgan';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import config from './config/config.js';
-import { testConnection, ensureSchema } from './db.js';
+import { testConnection, ensureSchema, pool } from './db.js';
 // Initialize Express app
 const app = express();
 const server = http.createServer(app);
@@ -24,8 +24,12 @@ import listenerRoutes from './routes/listeners.js';
 import callRoutes from './routes/calls.js';
 import createChatsRouter from './routes/chats.js';
 import adminRoutes from './routes/admin.js';
+import notificationsRoutes from './routes/notifications.js';
 import User from './models/User.js';
 import { Chat, Message } from './models/Chat.js';
+import { sendPushFCM } from './utils/fcm.js';
+import NotificationOutbox from './models/NotificationOutbox.js';
+import NotificationDelivery from './models/NotificationDelivery.js';
 
 // ============================================
 // MIDDLEWARE
@@ -96,6 +100,7 @@ app.use('/api/listeners', listenerRoutes);
 app.use('/api/calls', callRoutes);
 app.use('/api/chats', createChatsRouter(io)); // Pass io for real-time message delivery
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // ============================================
 // SOCKET.IO - REAL-TIME FEATURES
@@ -614,6 +619,79 @@ io.on('connection', (socket) => {
   });
 });
 
+async function processNotifications() {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const ready = await client.query(`
+      SELECT *
+      FROM notification_outbox
+      WHERE status = 'PENDING'
+        AND (schedule_at IS NULL OR schedule_at <= CURRENT_TIMESTAMP)
+      ORDER BY created_at ASC
+      LIMIT 10
+      FOR UPDATE SKIP LOCKED
+    `);
+    for (const outbox of ready.rows) {
+      const targetRole = outbox.target_role;
+      let users;
+      if (Array.isArray(outbox.target_user_ids) && outbox.target_user_ids.length > 0) {
+        users = await client.query(
+          `SELECT user_id, account_type, fcm_token FROM users WHERE user_id = ANY($1::uuid[])`,
+          [outbox.target_user_ids]
+        );
+        users = users.rows.filter(u => (targetRole === 'USER' ? u.account_type === 'user' : u.account_type === 'listener'));
+      } else {
+        users = await client.query(
+          `SELECT user_id, account_type, fcm_token FROM users WHERE account_type = $1`,
+          [targetRole === 'USER' ? 'user' : 'listener']
+        );
+        users = users.rows;
+      }
+      for (const u of users) {
+        await NotificationDelivery.ensure(outbox.id, u.user_id);
+        const inserted = await client.query(
+          `INSERT INTO notifications (user_id, title, message, notification_type, is_read, data, source_outbox_id)
+           VALUES ($1, $2, $3, $4, FALSE, $5::jsonb, $6)
+           ON CONFLICT DO NOTHING
+           RETURNING notification_id, created_at`,
+          [
+            u.user_id,
+            outbox.title,
+            outbox.body,
+            'system',
+            JSON.stringify({ targetRole: targetRole }),
+            outbox.id
+          ]
+        );
+        if (inserted.rows.length > 0) {
+          const payload = {
+            id: inserted.rows[0].notification_id,
+            title: outbox.title,
+            body: outbox.body,
+            createdAt: inserted.rows[0].created_at instanceof Date
+              ? inserted.rows[0].created_at.toISOString()
+              : inserted.rows[0].created_at
+          };
+          io.to(`user_${u.user_id}`).emit('app:notification', payload);
+          if (u.fcm_token) {
+            try {
+              await sendPushFCM(u.fcm_token, outbox.title, outbox.body, { outboxId: String(outbox.id) });
+            } catch {}
+          }
+          await NotificationDelivery.markSent(outbox.id, u.user_id);
+        }
+      }
+      await NotificationOutbox.markSent(outbox.id);
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+  } finally {
+    client.release();
+  }
+}
+
 
 
 // ============================================
@@ -673,6 +751,7 @@ async function startServer() {
       console.log(`📊 API endpoints available at http://localhost:${PORT}/api`);
       console.log('='.repeat(50) + '\n');
     });
+    setInterval(processNotifications, 60 * 1000);
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);

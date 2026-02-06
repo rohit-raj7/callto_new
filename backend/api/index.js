@@ -14,6 +14,7 @@ import listenerRoutes from '../routes/listeners.js';
 import callRoutes from '../routes/calls.js';
 import chatRoutes from '../routes/chats.js';
 import adminRoutes from '../routes/admin.js';
+import notificationsRoutes from '../routes/notifications.js';
 
 // Initialize Express app
 const app = express();
@@ -87,6 +88,7 @@ app.use('/api/listeners', listenerRoutes);
 app.use('/api/calls', callRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // ============================================
 // ERROR HANDLING

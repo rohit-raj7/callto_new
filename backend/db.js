@@ -80,6 +80,50 @@ async function ensureSchema() {
     // Ensure UUID function is available
     await pool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
 
+    const createOutboxSql = `
+      CREATE TABLE IF NOT EXISTS notification_outbox (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title VARCHAR(255) NOT NULL,
+        body TEXT NOT NULL,
+        target_role VARCHAR(20) NOT NULL CHECK (target_role IN ('USER','LISTENER')),
+        target_user_ids UUID[] NULL,
+        schedule_at TIMESTAMP NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','SENT','FAILED')),
+        created_by UUID NOT NULL REFERENCES admins(admin_id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        delivered_at TIMESTAMP NULL,
+        retry_count INTEGER DEFAULT 0,
+        last_error TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_notification_outbox_schedule ON notification_outbox(schedule_at);
+      CREATE INDEX IF NOT EXISTS idx_notification_outbox_status ON notification_outbox(status);
+      CREATE INDEX IF NOT EXISTS idx_notification_outbox_target_role ON notification_outbox(target_role);
+    `;
+    await pool.query(createOutboxSql);
+
+    const createDeliveriesSql = `
+      CREATE TABLE IF NOT EXISTS notification_deliveries (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        outbox_id UUID NOT NULL REFERENCES notification_outbox(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','SENT','FAILED')),
+        delivered_at TIMESTAMP NULL,
+        retry_count INTEGER DEFAULT 0,
+        last_error TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(outbox_id, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_notification_deliveries_status ON notification_deliveries(status);
+      CREATE INDEX IF NOT EXISTS idx_notification_deliveries_user ON notification_deliveries(user_id);
+    `;
+    await pool.query(createDeliveriesSql);
+
+    const alterNotificationsSql = `
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS source_outbox_id UUID;
+      CREATE INDEX IF NOT EXISTS idx_notifications_source_outbox ON notifications(source_outbox_id);
+    `;
+    await pool.query(alterNotificationsSql);
+
     // Create admins table if it doesn't exist
     const createAdminsSql = `
       CREATE TABLE IF NOT EXISTS admins (

@@ -81,6 +81,7 @@ class SocketService {
     StreamController<Map<String, dynamic>>? _chatErrorController;
     StreamController<Map<String, dynamic>>? _chatNotificationController;
     StreamController<Map<String, dynamic>>? _messageDeletedController; // For delete_message events
+  StreamController<Map<String, dynamic>>? _appNotificationController;
     
   static final SocketService _instance = SocketService._internal();
   factory SocketService() => _instance;
@@ -188,6 +189,10 @@ class SocketService {
     _messageDeletedController ??= StreamController<Map<String, dynamic>>.broadcast();
     return _messageDeletedController!;
   }
+  StreamController<Map<String, dynamic>> get _appNotification {
+    _appNotificationController ??= StreamController<Map<String, dynamic>>.broadcast();
+    return _appNotificationController!;
+  }
 
   // Public streams - Call related
   Stream<IncomingCall> get onIncomingCall => _incomingCall.stream;
@@ -207,6 +212,7 @@ class SocketService {
   Stream<Map<String, dynamic>> get onChatError => _chatError.stream;
   Stream<Map<String, dynamic>> get onChatNotification => _chatNotification.stream;
   Stream<Map<String, dynamic>> get onMessageDeleted => _messageDeleted.stream; // For delete_message events
+  Stream<Map<String, dynamic>> get onAppNotification => _appNotification.stream;
 
   bool get isConnected => _socket?.connected ?? false;
   
@@ -443,6 +449,15 @@ class SocketService {
         _messageDeleted.add(deleteData);
       } catch (e) {
         _log('Error parsing message:deleted: $e');
+      }
+    });
+    _socket!.on('app:notification', (data) {
+      _log('App notification received: $data');
+      try {
+        final notifData = data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data);
+        _appNotification.add(notifData);
+      } catch (e) {
+        _log('Error parsing app:notification: $e');
       }
     });
 
@@ -882,5 +897,7 @@ class SocketService {
     _chatNotificationController = null;
     _messageDeletedController?.close();
     _messageDeletedController = null;
+    _appNotificationController?.close();
+    _appNotificationController = null;
   }
 }

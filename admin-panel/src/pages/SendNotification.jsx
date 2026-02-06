@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Bell, Calendar, Clock, Send, Smartphone, Users, Headphones, Sparkles } from 'lucide-react';
 /* eslint-disable no-unused-vars */
 import { motion, AnimatePresence } from 'framer-motion';
+import api from '../services/api';
 
 const NotificationPanel = ({
   title,
@@ -11,7 +12,22 @@ const NotificationPanel = ({
   repeatValue,
   onRepeatChange,
   Icon,
-  accentColor = "pink"
+  accentColor = "pink",
+  notifTitle,
+  setNotifTitle,
+  notifBody,
+  setNotifBody,
+  dateValue,
+  setDateValue,
+  timeValue,
+  setTimeValue,
+  targetAll,
+  setTargetAll,
+  targetIds,
+  setTargetIds,
+  onSend,
+  sending,
+  feedback
 }) => {
   const lowerTarget = targetLabel.toLowerCase();
   
@@ -71,6 +87,8 @@ const NotificationPanel = ({
               type="text"
               placeholder={`e.g. Welcome to CallTo!`}
               className={`w-full px-5 py-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-900 text-gray-900 dark:text-white ${colors.focus} focus:ring-2 focus:border-transparent transition-all placeholder:text-gray-400`}
+              value={notifTitle}
+              onChange={(e) => setNotifTitle(e.target.value)}
             />
           </div>
 
@@ -82,6 +100,8 @@ const NotificationPanel = ({
               rows={4}
               placeholder={`Write a friendly message for your ${lowerTarget}s...`}
               className={`w-full px-5 py-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-900 text-gray-900 dark:text-white ${colors.focus} focus:ring-2 focus:border-transparent transition-all placeholder:text-gray-400 resize-none`}
+              value={notifBody}
+              onChange={(e) => setNotifBody(e.target.value)}
             />
           </div>
 
@@ -126,6 +146,8 @@ const NotificationPanel = ({
                       <input
                         type="date"
                         className={`w-full pl-12 pr-5 py-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-900 text-gray-900 dark:text-white ${colors.focus} focus:ring-2 focus:border-transparent transition-all`}
+                        value={dateValue}
+                        onChange={(e) => setDateValue(e.target.value)}
                       />
                     </div>
                   </div>
@@ -139,6 +161,8 @@ const NotificationPanel = ({
                       <input
                         type="time"
                         className={`w-full pl-12 pr-5 py-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-900 text-gray-900 dark:text-white ${colors.focus} focus:ring-2 focus:border-transparent transition-all`}
+                        value={timeValue}
+                        onChange={(e) => setTimeValue(e.target.value)}
                       />
                     </div>
                   </div>
@@ -178,15 +202,62 @@ const NotificationPanel = ({
             )}
           </AnimatePresence>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="group">
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                Target Audience
+              </label>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setTargetAll(true)}
+                  className={`px-4 py-2 rounded-xl border-2 text-sm font-bold ${targetAll ? 'border-pink-500 text-pink-700' : 'border-gray-200 text-gray-500'}`}
+                  type="button"
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setTargetAll(false)}
+                  className={`px-4 py-2 rounded-xl border-2 text-sm font-bold ${!targetAll ? 'border-pink-500 text-pink-700' : 'border-gray-200 text-gray-500'}`}
+                  type="button"
+                >
+                  Selected IDs
+                </button>
+              </div>
+            </div>
+            {!targetAll && (
+              <div className="group">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                  IDs (comma separated UUIDs)
+                </label>
+                <input
+                  type="text"
+                  placeholder="id1, id2, id3"
+                  className={`w-full px-5 py-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-900 text-gray-900 dark:text-white ${colors.focus} focus:ring-2 focus:border-transparent transition-all placeholder:text-gray-400`}
+                  value={targetIds}
+                  onChange={(e) => setTargetIds(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
           <div className="pt-4">
             <motion.button 
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
               className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl ${colors.button} text-white font-bold text-lg transition-all shadow-xl shadow-pink-200/50 dark:shadow-none hover:shadow-2xl`}
+              onClick={onSend}
+              disabled={sending}
             >
               <Send className="w-5 h-5" />
               Push to {targetLabel}s
             </motion.button>
+            {feedback && (
+              <div className="mt-3 text-sm font-medium">
+                <span className={feedback.type === 'error' ? 'text-red-600' : 'text-green-600'}>
+                  {feedback.message}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -244,6 +315,68 @@ const SendNotification = () => {
   const [listenerScheduleEnabled, setListenerScheduleEnabled] = useState(false);
   const [userRepeat, setUserRepeat] = useState('daily');
   const [listenerRepeat, setListenerRepeat] = useState('daily');
+  const [userNotifTitle, setUserNotifTitle] = useState('');
+  const [userNotifBody, setUserNotifBody] = useState('');
+  const [userDate, setUserDate] = useState('');
+  const [userTime, setUserTime] = useState('');
+  const [userTargetAll, setUserTargetAll] = useState(true);
+  const [userTargetIds, setUserTargetIds] = useState('');
+  const [listenerNotifTitle, setListenerNotifTitle] = useState('');
+  const [listenerNotifBody, setListenerNotifBody] = useState('');
+  const [listenerDate, setListenerDate] = useState('');
+  const [listenerTime, setListenerTime] = useState('');
+  const [listenerTargetAll, setListenerTargetAll] = useState(true);
+  const [listenerTargetIds, setListenerTargetIds] = useState('');
+  const [sendingUser, setSendingUser] = useState(false);
+  const [sendingListener, setSendingListener] = useState(false);
+  const [feedbackUser, setFeedbackUser] = useState(null);
+  const [feedbackListener, setFeedbackListener] = useState(null);
+
+  const buildScheduleAt = (date, time) => {
+    if (!date || !time) return null;
+    const iso = new Date(`${date}T${time}:00`).toISOString();
+    return iso;
+  };
+
+  const parseIds = (text) => {
+    return text
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  };
+
+  const sendToRole = async (role) => {
+    const isUser = role === 'USER';
+    const title = isUser ? userNotifTitle : listenerNotifTitle;
+    const body = isUser ? userNotifBody : listenerNotifBody;
+    const scheduleAt = isUser
+      ? buildScheduleAt(userDate, userTime)
+      : buildScheduleAt(listenerDate, listenerTime);
+    const targetAll = isUser ? userTargetAll : listenerTargetAll;
+    const idsText = isUser ? userTargetIds : listenerTargetIds;
+    const targetUserIds = targetAll ? null : parseIds(idsText);
+
+    if (!title || !body) {
+      (isUser ? setFeedbackUser : setFeedbackListener)({ type: 'error', message: 'Title and Message are required' });
+      return;
+    }
+    (isUser ? setSendingUser : setSendingListener)(true);
+    (isUser ? setFeedbackUser : setFeedbackListener)(null);
+    try {
+      const res = await api.post('/notifications/outbox', {
+        title,
+        body,
+        targetRole: role,
+        targetUserIds,
+        scheduleAt,
+      });
+      (isUser ? setFeedbackUser : setFeedbackListener)({ type: 'success', message: 'Notification scheduled' });
+    } catch (e) {
+      (isUser ? setFeedbackUser : setFeedbackListener)({ type: 'error', message: 'Failed to schedule' });
+    } finally {
+      (isUser ? setSendingUser : setSendingListener)(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FDF2F8] dark:bg-gray-950 p-4 lg:p-8">
@@ -291,6 +424,21 @@ const SendNotification = () => {
             repeatValue={userRepeat}
             onRepeatChange={setUserRepeat}
             accentColor="pink"
+            notifTitle={userNotifTitle}
+            setNotifTitle={setUserNotifTitle}
+            notifBody={userNotifBody}
+            setNotifBody={setUserNotifBody}
+            dateValue={userDate}
+            setDateValue={setUserDate}
+            timeValue={userTime}
+            setTimeValue={setUserTime}
+            targetAll={userTargetAll}
+            setTargetAll={setUserTargetAll}
+            targetIds={userTargetIds}
+            setTargetIds={setUserTargetIds}
+            onSend={() => sendToRole('USER')}
+            sending={sendingUser}
+            feedback={feedbackUser}
           />
           <NotificationPanel
             title="Expert Listeners"
@@ -301,6 +449,21 @@ const SendNotification = () => {
             repeatValue={listenerRepeat}
             onRepeatChange={setListenerRepeat}
             accentColor="purple"
+            notifTitle={listenerNotifTitle}
+            setNotifTitle={setListenerNotifTitle}
+            notifBody={listenerNotifBody}
+            setNotifBody={setListenerNotifBody}
+            dateValue={listenerDate}
+            setDateValue={setListenerDate}
+            timeValue={listenerTime}
+            setTimeValue={setListenerTime}
+            targetAll={listenerTargetAll}
+            setTargetAll={setListenerTargetAll}
+            targetIds={listenerTargetIds}
+            setTargetIds={setListenerTargetIds}
+            onSend={() => sendToRole('LISTENER')}
+            sending={sendingListener}
+            feedback={feedbackListener}
           />
         </div>
       </div>

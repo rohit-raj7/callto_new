@@ -36,6 +36,9 @@ class ApiConfig {
   static final String agoraToken = '$apiBase/calls/agora/token';
 
   static final String chats = '$apiBase/chats';
+  static final String notificationsMy = '$apiBase/notifications/my';
+  static final String notificationsMarkRead = '$apiBase/notifications/mark-read';
+  static final String notificationsUnreadCount = '$apiBase/notifications/unread-count';
 
   static final String health = '$apiBase/health';
 
