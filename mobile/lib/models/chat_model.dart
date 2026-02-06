@@ -129,11 +129,12 @@ class Message {
   /// Check if message is from the specified user
   bool isFromUser(String userId) => senderId == userId;
 
-  /// Get formatted time
+  /// Get formatted time (converts UTC to device local time)
   String get formattedTime {
     if (createdAt == null) return '';
-    final hour = createdAt!.hour;
-    final minute = createdAt!.minute.toString().padLeft(2, '0');
+    final local = createdAt!.toLocal();
+    final hour = local.hour;
+    final minute = local.minute.toString().padLeft(2, '0');
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
     return '$displayHour:$minute $period';

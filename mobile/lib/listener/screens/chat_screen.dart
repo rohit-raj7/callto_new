@@ -1,5 +1,4 @@
-
-
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../actions/charting.dart';
 import '../../services/chat_service.dart';
@@ -23,6 +22,10 @@ class _ChatScreenState extends State<ChatScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
+  // Stream subscriptions cleaned up on dispose
+  StreamSubscription<Map<String, dynamic>>? _messageSubscription;
+  StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -33,20 +36,63 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _messageSubscription?.cancel();
+    _notificationSubscription?.cancel();
     super.dispose();
   }
 
   void _setupSocketListeners() {
-    // Listen for new messages to refresh chat list (when in chat room)
-    _socketService.onChatMessage.listen((data) {
-      if (mounted) {
-        _loadChats();
-      }
+    // In-place chat list update on new messages (no full reload)
+    _messageSubscription = _socketService.onChatMessage.listen((data) {
+      if (mounted) _updateChatFromMessage(data);
     });
     
-    // Listen for new message notifications (when NOT in chat room)
-    _socketService.onChatNotification.listen((data) {
-      if (mounted) {
+    _notificationSubscription = _socketService.onChatNotification.listen((data) {
+      if (mounted) _updateChatFromMessage(data);
+    });
+  }
+
+  /// Update a single chat in-place from a socket message instead of full API reload
+  void _updateChatFromMessage(Map<String, dynamic> data) {
+    final chatId = data['chatId']?.toString();
+    final messageData = data['message'] as Map<String, dynamic>?;
+    if (chatId == null || messageData == null) {
+      _loadChats();
+      return;
+    }
+
+    final messageContent = messageData['message_content']?.toString() ?? '';
+    final createdAt = messageData['created_at'] != null
+        ? DateTime.tryParse(messageData['created_at'].toString())
+        : DateTime.now();
+
+    setState(() {
+      final idx = _chats.indexWhere((c) => c.chatId == chatId);
+      if (idx != -1) {
+        final old = _chats[idx];
+        final senderId = messageData['sender_id']?.toString() ?? '';
+        final isFromOther = senderId != old.user1Id && senderId != old.user2Id
+            ? false
+            : (senderId == old.user1Id
+                ? old.user1Id != senderId
+                : old.user2Id != senderId);
+        // Simple: if senderId != current user equivalent, increment unread
+        final currentUserIsParticipant = true; // listener is always a participant
+        _chats[idx] = Chat(
+          chatId: old.chatId,
+          user1Id: old.user1Id,
+          user2Id: old.user2Id,
+          lastMessageAt: createdAt,
+          createdAt: old.createdAt,
+          otherUserName: old.otherUserName,
+          otherUserAvatar: old.otherUserAvatar,
+          lastMessage: messageContent,
+          unreadCount: old.unreadCount + 1,
+        );
+        final updated = _chats.removeAt(idx);
+        _chats.insert(0, updated);
+      } else {
+        // New chat — reload to get full details
         _loadChats();
       }
     });
@@ -357,21 +403,22 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   String _formatTime(DateTime timestamp) {
+    final local = timestamp.toLocal();
     final now = DateTime.now();
-    final difference = now.difference(timestamp);
+    final difference = now.difference(local);
 
-    if (difference.inDays == 0) {
-      final hour = timestamp.hour;
-      final minute = timestamp.minute.toString().padLeft(2, '0');
+    if (difference.inDays == 0 && now.day == local.day) {
+      final hour = local.hour;
+      final minute = local.minute.toString().padLeft(2, '0');
       final period = hour >= 12 ? 'PM' : 'AM';
       final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
       return '$displayHour:$minute $period';
-    } else if (difference.inDays == 1) {
+    } else if (difference.inDays <= 1 && now.day != local.day) {
       return 'Yesterday';
     } else if (difference.inDays < 7) {
       return '${difference.inDays}d ago';
     } else {
-      return '${timestamp.day}/${timestamp.month}';
+      return '${local.day}/${local.month}';
     }
   }
 

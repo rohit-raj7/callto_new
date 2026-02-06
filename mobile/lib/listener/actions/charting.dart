@@ -169,8 +169,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Future<void> _loadMessagesFromApi() async {
     if (_chatId == null) return;
     
-    // Wait a bit for socket history, then load from API if not received
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Short wait for socket history, then load from API if not received
+    await Future.delayed(const Duration(milliseconds: 200));
     
     if (!_historyReceived && mounted) {
       print('[ChatPage-Listener] Socket history not received, loading from API');
@@ -425,21 +425,52 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
+          0.0,
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
         );
       }
     });
   }
 
+  /// Returns a date header string if the message is the first on that day
+  String? _dateSeparator(int index) {
+    if (index == _messages.length - 1) {
+      return _formatDate(_messages[_messages.length - 1 - index].createdAt);
+    }
+    final current = _messages[_messages.length - 1 - index];
+    final previous = _messages[_messages.length - 2 - index];
+    if (current.createdAt != null && previous.createdAt != null) {
+      final curLocal = current.createdAt!.toLocal();
+      final prevLocal = previous.createdAt!.toLocal();
+      if (curLocal.day != prevLocal.day ||
+          curLocal.month != prevLocal.month ||
+          curLocal.year != prevLocal.year) {
+        return _formatDate(current.createdAt);
+      }
+    }
+    return null;
+  }
+
+  String _formatDate(DateTime? dt) {
+    if (dt == null) return '';
+    final local = dt.toLocal();
+    final now = DateTime.now();
+    final diff = now.difference(local);
+    if (diff.inDays == 0 && now.day == local.day) return 'Today';
+    if (diff.inDays == 1 || (diff.inDays == 0 && now.day != local.day)) return 'Yesterday';
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${local.day} ${months[local.month - 1]} ${local.year}';
+  }
+
   String _formatTime(DateTime? timestamp) {
     if (timestamp == null) return '';
-    final hour = timestamp.hour;
-    final minute = timestamp.minute.toString().padLeft(2, '0');
+    final local = timestamp.toLocal();
+    final hour = local.hour;
+    final minute = local.minute.toString().padLeft(2, '0');
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
     return '$displayHour:$minute $period';
@@ -641,156 +672,194 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       appBar: _buildAppBar(),
       body: Column(
         children: [
-          // Messages List
+          // Messages List (reversed for bottom-anchored scrolling)
           Expanded(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFFFEBEE), Color(0xFFFCE4EC)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(16),
-                itemCount: _messages.length + (_otherUserTyping ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (_otherUserTyping && index == _messages.length) {
-                    return _buildTypingIndicator();
-                  }
+            child: ListView.builder(
+              controller: _scrollController,
+              reverse: true,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              itemCount: _messages.length + (_otherUserTyping ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (_otherUserTyping && index == 0) {
+                  return _buildTypingIndicator();
+                }
 
-                  final message = _messages[index];
-                  final isUser = message.senderId == _currentUserId;
-                  
-                  // WhatsApp-style: Skip messages deleted for me (completely hidden)
-                  if (_deletedForMe.contains(message.messageId)) {
-                    return const SizedBox.shrink();
-                  }
-                  
-                  // WhatsApp-style: Show placeholder for messages deleted for everyone
-                  final isDeletedForEveryone = _deletedForEveryone.contains(message.messageId);
+                final msgIndex = _otherUserTyping ? index - 1 : index;
+                final message = _messages[_messages.length - 1 - msgIndex];
+                final isUser = message.senderId == _currentUserId;
 
-                  return GestureDetector(
-                    onLongPress: isDeletedForEveryone ? null : () => _showDeleteOptions(message, isUser),
-                    child: Align(
-                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.75,
+                if (_deletedForMe.contains(message.messageId)) {
+                  return const SizedBox.shrink();
+                }
+
+                final isDeletedForEveryone =
+                    _deletedForEveryone.contains(message.messageId);
+
+                final dateSep = _dateSeparator(msgIndex);
+
+                return Column(
+                  children: [
+                    if (dateSep != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              dateSep,
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey.shade700),
+                            ),
+                          ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: isUser
-                              ? CrossAxisAlignment.end
-                              : CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: isDeletedForEveryone
-                                    ? Colors.grey.shade200  // Grey for deleted messages
-                                    : (isUser ? Colors.pinkAccent : Colors.white),
-                                borderRadius: BorderRadius.only(
-                                  topLeft: const Radius.circular(20),
-                                  topRight: const Radius.circular(20),
-                                  bottomLeft: isUser
-                                      ? const Radius.circular(20)
-                                      : const Radius.circular(4),
-                                  bottomRight: isUser
-                                      ? const Radius.circular(4)
-                                      : const Radius.circular(20),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: isDeletedForEveryone
-                                  // WhatsApp-style deleted message placeholder (local only)
-                                  ? Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.block, size: 14, color: Colors.grey.shade600),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'This message was deleted',
-                                          style: TextStyle(
-                                            color: Colors.grey.shade600,
-                                            fontSize: 14,
-                                            fontStyle: FontStyle.italic,
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  : Text(
-                                      message.messageContent,
+                      ),
+                    GestureDetector(
+                      onLongPress: isDeletedForEveryone
+                          ? null
+                          : () => _showDeleteOptions(message, isUser),
+                      child: Align(
+                        alignment: isUser
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 3),
+                          constraints: BoxConstraints(
+                            maxWidth:
+                                MediaQuery.of(context).size.width * 0.78,
+                          ),
+                          padding: const EdgeInsets.only(
+                              left: 14, right: 10, top: 8, bottom: 6),
+                          decoration: BoxDecoration(
+                            color: isDeletedForEveryone
+                                ? Colors.grey.shade200
+                                : (isUser
+                                    ? Colors.pinkAccent
+                                    : const Color(0xFFFFE4EC)),
+                            borderRadius: BorderRadius.only(
+                              topLeft: const Radius.circular(16),
+                              topRight: const Radius.circular(16),
+                              bottomLeft: isUser
+                                  ? const Radius.circular(16)
+                                  : Radius.zero,
+                              bottomRight: isUser
+                                  ? Radius.zero
+                                  : const Radius.circular(16),
+                            ),
+                          ),
+                          child: isDeletedForEveryone
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.block,
+                                        size: 14,
+                                        color: Colors.grey.shade600),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'This message was deleted',
                                       style: TextStyle(
-                                        color: isUser ? Colors.white : Colors.black87,
-                                        fontSize: 15,
-                                        height: 1.4,
+                                        color: Colors.grey.shade600,
+                                        fontSize: 14,
+                                        fontStyle: FontStyle.italic,
                                       ),
                                     ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
-                              child: Text(
-                                _formatTime(message.createdAt),
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 11,
+                                  ],
+                                )
+                              : Column(
+                                  crossAxisAlignment: isUser
+                                      ? CrossAxisAlignment.end
+                                      : CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      message.messageContent,
+                                      style: TextStyle(
+                                        color: isUser
+                                            ? Colors.white
+                                            : Colors.black87,
+                                        fontSize: 15,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          _formatTime(message.createdAt),
+                                          style: TextStyle(
+                                            color: isUser
+                                                ? Colors.white70
+                                                : Colors.grey.shade500,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                        if (isUser) ...[
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            message.messageId
+                                                    .startsWith('temp_')
+                                                ? Icons.access_time
+                                                : (message.isRead
+                                                    ? Icons.done_all
+                                                    : Icons.done),
+                                            size: 14,
+                                            color: message.isRead
+                                                ? Colors.lightBlueAccent
+                                                : Colors.white70,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
+                  ],
+                );
+              },
             ),
           ),
 
           // Input Area
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
-                )
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, -2))
               ],
             ),
             child: Row(
               children: [
-                // Text Field
                 Expanded(
                   child: TextField(
                     controller: _controller,
                     maxLines: null,
                     textCapitalization: TextCapitalization.sentences,
                     decoration: InputDecoration(
-                      hintText: "Share what's on your mind...",
+                      hintText: "Type your message...",
                       hintStyle: TextStyle(color: Colors.grey.shade500),
                       filled: true,
                       fillColor: const Color(0xFFFFF1F5),
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
+                          horizontal: 16, vertical: 10),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
+                        borderRadius: BorderRadius.circular(30),
                         borderSide: BorderSide.none,
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: const BorderSide(color: Colors.pinkAccent, width: 1),
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: const BorderSide(
+                            color: Colors.pinkAccent, width: 1),
                       ),
                     ),
                     onChanged: (text) {
@@ -799,10 +868,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     onSubmitted: (_) => _sendMessage(),
                   ),
                 ),
-
-                const SizedBox(width: 12),
-
-                // Send Button
+                const SizedBox(width: 8),
                 Container(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
@@ -843,27 +909,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               Text(
                 widget.expertName,
                 style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+                    fontWeight: FontWeight.bold, fontSize: 16),
               ),
-              Row(
-                children: [
-                  if (_otherUserTyping) ...[
-                    const Text(
-                      'typing...',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white70,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ] else ...[
+              if (_otherUserTyping)
+                const Text(
+                  'typing...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.white70,
+                  ),
+                )
+              else if (_otherUserOnline)
+                Row(
+                  children: [
                     Container(
                       width: 8,
                       height: 8,
                       decoration: const BoxDecoration(
-                        color: Colors.green,
+                        color: Colors.greenAccent,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -871,14 +935,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     const Text(
                       'Online',
                       style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w400,
-                      ),
+                          fontSize: 12, color: Colors.white70),
                     ),
                   ],
-                ],
-              ),
+                ),
             ],
           ),
         ],
@@ -890,9 +950,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       actions: [
         IconButton(
           icon: const Icon(Icons.more_vert, color: Colors.white),
-          onPressed: () {
-            // Add menu options like report, block, etc.
-          },
+          onPressed: () {},
         ),
       ],
     );
@@ -902,56 +960,45 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
+        margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-            bottomRight: Radius.circular(20),
-            bottomLeft: Radius.circular(4),
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFE4EC),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+            bottomRight: Radius.circular(16),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                color: Colors.grey,
-                shape: BoxShape.circle,
-              ),
-            ),
+            _buildBouncingDot(0),
             const SizedBox(width: 4),
-            Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                color: Colors.grey,
-                shape: BoxShape.circle,
-              ),
-            ),
+            _buildBouncingDot(200),
             const SizedBox(width: 4),
-            Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                color: Colors.grey,
-                shape: BoxShape.circle,
-              ),
-            ),
+            _buildBouncingDot(400),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBouncingDot(int delayMs) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.3, end: 1.0),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
+      builder: (context, value, child) {
+        return Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: Colors.grey.withOpacity(value),
+            shape: BoxShape.circle,
+          ),
+        );
+      },
     );
   }
 }

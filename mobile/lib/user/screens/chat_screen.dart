@@ -1,9 +1,10 @@
-
-
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../actions/charting.dart';
+import '../../services/chat_service.dart';
 import '../../services/listener_service.dart';
 import '../../services/socket_service.dart';
+import '../../models/chat_model.dart';
 import '../../models/listener_model.dart' as models;
 
 class ChatScreen extends StatefulWidget {
@@ -14,112 +15,183 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final ChatService _chatService = ChatService();
   final ListenerService _listenerService = ListenerService();
   final SocketService _socketService = SocketService();
-  
-  List<models.Listener> _listeners = [];
+
+  List<Chat> _chats = [];
   bool _isLoading = true;
   String? _errorMessage;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
+  // Real-time online status tracking
+  Map<String, bool> _onlineStatus = {};
+
+  // Stream subscriptions
+  StreamSubscription<Map<String, dynamic>>? _messageSubscription;
+  StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
+  StreamSubscription<Map<String, bool>>? _statusSubscription;
+
   @override
   void initState() {
     super.initState();
-    _loadListeners();
-    _setupOnlineStatusListener();
+    _loadChats();
+    _setupSocketListeners();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _messageSubscription?.cancel();
+    _notificationSubscription?.cancel();
+    _statusSubscription?.cancel();
     super.dispose();
   }
 
-  void _setupOnlineStatusListener() {
-    _socketService.listenerStatusStream.listen((statusMap) {
+  void _setupSocketListeners() {
+    // Listen for new messages to update chat list in-place (no full reload)
+    _messageSubscription = _socketService.onChatMessage.listen((data) {
+      if (mounted) {
+        _updateChatFromMessage(data);
+      }
+    });
+
+    // Listen for notifications (when NOT in a chat room)
+    _notificationSubscription = _socketService.onChatNotification.listen((data) {
+      if (mounted) {
+        _updateChatFromMessage(data);
+      }
+    });
+
+    // Track listener online/offline status in real-time
+    _statusSubscription = _socketService.listenerStatusStream.listen((statusMap) {
       if (mounted) {
         setState(() {
-          // Update listener online status based on socket events
-          for (var listener in _listeners) {
-            if (statusMap.containsKey(listener.userId)) {
-              // This would require making Listener mutable or creating a new model
-              // For now, we'll just trigger a rebuild
-            }
-          }
+          _onlineStatus = statusMap;
         });
       }
     });
   }
 
-  Future<void> _loadListeners() async {
+  /// Update a single chat in-place from a socket message instead of reloading all chats
+  void _updateChatFromMessage(Map<String, dynamic> data) {
+    final chatId = data['chatId']?.toString();
+    final messageData = data['message'] as Map<String, dynamic>?;
+    if (chatId == null || messageData == null) {
+      // Fallback: reload from API if data is incomplete
+      _loadChats();
+      return;
+    }
+
+    final messageContent = messageData['message_content']?.toString() ?? '';
+    final createdAt = messageData['created_at'] != null
+        ? DateTime.tryParse(messageData['created_at'].toString())
+        : DateTime.now();
+
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      final idx = _chats.indexWhere((c) => c.chatId == chatId);
+      if (idx != -1) {
+        // Update existing chat in-place
+        final old = _chats[idx];
+        final senderId = messageData['sender_id']?.toString() ?? '';
+        // Determine the current user from chat participants
+        final currentUserIsUser1 = old.user1Id != senderId;
+        final isFromOther = currentUserIsUser1
+            ? senderId == old.user2Id
+            : senderId == old.user1Id;
+        _chats[idx] = Chat(
+          chatId: old.chatId,
+          user1Id: old.user1Id,
+          user2Id: old.user2Id,
+          lastMessageAt: createdAt,
+          createdAt: old.createdAt,
+          otherUserName: old.otherUserName,
+          otherUserAvatar: old.otherUserAvatar,
+          lastMessage: messageContent,
+          unreadCount: isFromOther ? old.unreadCount + 1 : old.unreadCount,
+        );
+        // Move this chat to the top
+        final updated = _chats.removeAt(idx);
+        _chats.insert(0, updated);
+      } else {
+        // New chat arrived – reload to get full details
+        _loadChats();
+      }
     });
+  }
+
+  Future<void> _loadChats() async {
+    if (!_isLoading) {
+      setState(() { _isLoading = true; _errorMessage = null; });
+    }
 
     try {
-      final result = await _listenerService.getListeners(
-        isOnline: true, // Only show online listeners for chat
-        sortBy: 'rating',
-      );
+      final result = await _chatService.getChats();
 
       if (result.success) {
+        // Also snapshot online status
+        _onlineStatus = Map.from(_socketService.listenerOnlineMap);
+
         setState(() {
-          _listeners = result.listeners;
+          _chats = result.chats;
           _isLoading = false;
         });
       } else {
         setState(() {
-          _errorMessage = result.error ?? 'Failed to load listeners';
+          _errorMessage = result.error ?? 'Failed to load chats';
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error loading listeners: $e';
+        _errorMessage = 'Error loading chats: $e';
         _isLoading = false;
       });
     }
   }
 
-  Future<void> _searchListeners(String query) async {
-    if (query.isEmpty) {
-      _loadListeners();
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final result = await _listenerService.searchListeners(query);
-      
-      if (result.success) {
-        setState(() {
-          _listeners = result.listeners;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Search error: $e';
-        _isLoading = false;
-      });
-    }
-  }
-
-  List<models.Listener> get _filteredListeners {
-    if (_searchQuery.isEmpty) return _listeners;
-    
-    return _listeners.where((listener) {
-      final name = listener.professionalName?.toLowerCase() ?? '';
-      final specialties = listener.specialties.join(' ').toLowerCase();
-      final query = _searchQuery.toLowerCase();
-      return name.contains(query) || specialties.contains(query);
+  List<Chat> get _filteredChats {
+    if (_searchQuery.isEmpty) return _chats;
+    return _chats.where((chat) {
+      final name = chat.otherUserName?.toLowerCase() ?? '';
+      return name.contains(_searchQuery.toLowerCase());
     }).toList();
   }
+
+  /// Check if the other user in a chat is online
+  bool _isOtherUserOnline(Chat chat) {
+    return _onlineStatus[chat.user2Id] == true ||
+        _onlineStatus[chat.user1Id] == true;
+  }
+
+  /// Open the new-chat picker to start a conversation with any listener
+  void _openNewChatPicker() async {
+    final selectedListener = await showModalBottomSheet<models.Listener>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => const _ListenerPickerSheet(),
+    );
+
+    if (selectedListener != null && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatPage(
+            expertName: selectedListener.professionalName ?? 'Expert',
+            imagePath: 'assets/images/khushi.jpg',
+            otherUserId: selectedListener.userId,
+            otherUserAvatar: selectedListener.avatarUrl,
+          ),
+        ),
+      ).then((_) => _loadChats());
+    }
+  }
+
+  // ============================================
+  // BUILD
+  // ============================================
 
   @override
   Widget build(BuildContext context) {
@@ -128,13 +200,18 @@ class _ChatScreenState extends State<ChatScreen> {
         elevation: 0,
         backgroundColor: Colors.pinkAccent,
         title: const Text(
-          'Chat Now',
+          'Chats',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.pinkAccent,
+        onPressed: _openNewChatPicker,
+        child: const Icon(Icons.chat, color: Colors.white),
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -151,18 +228,9 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.all(12.0),
               child: TextField(
                 controller: _searchController,
-                onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value;
-                  });
-                  if (value.length >= 2) {
-                    _searchListeners(value);
-                  } else if (value.isEmpty) {
-                    _loadListeners();
-                  }
-                },
+                onChanged: (value) => setState(() => _searchQuery = value),
                 decoration: InputDecoration(
-                  hintText: 'Search experts...',
+                  hintText: 'Search chats...',
                   prefixIcon: const Icon(Icons.search, color: Colors.pinkAccent),
                   filled: true,
                   fillColor: Colors.white,
@@ -172,14 +240,21 @@ class _ChatScreenState extends State<ChatScreen> {
                     borderRadius: BorderRadius.circular(30),
                     borderSide: BorderSide.none,
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide:
+                        BorderSide(color: Colors.pinkAccent.withOpacity(0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: const BorderSide(color: Colors.pinkAccent),
+                  ),
                 ),
               ),
             ),
 
-            // Content
-            Expanded(
-              child: _buildContent(),
-            ),
+            // Chat list or empty state
+            Expanded(child: _buildContent()),
           ],
         ),
       ),
@@ -200,160 +275,432 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text(_errorMessage!, style: const TextStyle(color: Colors.grey)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                _errorMessage!,
+                style: const TextStyle(color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _loadListeners,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
-              child: const Text('Retry', style: TextStyle(color: Colors.white)),
+              onPressed: _loadChats,
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+              child:
+                  const Text('Retry', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
       );
     }
 
-    final listeners = _filteredListeners;
+    final chats = _filteredChats;
 
-    if (listeners.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.person_off, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text(
-              'No experts available',
-              style: TextStyle(color: Colors.grey, fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: _loadListeners,
-              child: const Text('Refresh'),
-            ),
-          ],
-        ),
-      );
+    if (chats.isEmpty) {
+      return _buildEmptyState();
     }
 
     return RefreshIndicator(
-      onRefresh: _loadListeners,
+      onRefresh: _loadChats,
       child: ListView.builder(
-        itemCount: listeners.length,
-        itemBuilder: (context, index) {
-          final listener = listeners[index];
-          return _buildListenerCard(listener);
-        },
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        itemCount: chats.length,
+        itemBuilder: (context, index) => _buildChatTile(chats[index]),
       ),
     );
   }
 
-  Widget _buildListenerCard(models.Listener listener) {
-    final isOnline = listener.isOnline && listener.isAvailable;
-    
-    return Card(
-      color: const Color(0xFFFFE4EC),
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 3,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
+  // ============================================
+  // WhatsApp-style chat tile
+  // ============================================
+
+  Widget _buildChatTile(Chat chat) {
+    final hasUnread = chat.unreadCount > 0;
+    final isOnline = _isOtherUserOnline(chat);
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChatPage(
+              expertName: chat.otherUserName ?? 'Expert',
+              imagePath: 'assets/images/khushi.jpg',
+              chatId: chat.chatId,
+              otherUserAvatar: chat.otherUserAvatar,
+            ),
+          ),
+        ).then((_) => _loadChats());
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+          ),
+        ),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: Colors.white,
-              backgroundImage: listener.avatarUrl != null
-                  ? NetworkImage(listener.avatarUrl!)
-                  : const AssetImage('assets/images/khushi.jpg') as ImageProvider,
+            // Avatar with online indicator
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Colors.white,
+                  backgroundImage: chat.otherUserAvatar != null
+                      ? NetworkImage(chat.otherUserAvatar!)
+                      : const AssetImage('assets/images/khushi.jpg')
+                          as ImageProvider,
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: isOnline ? Colors.green : Colors.grey.shade400,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(width: 14),
+
+            // Name + last message
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "${listener.professionalName ?? 'Expert'} ${listener.age != null ? '• ${listener.age} Y' : ''}",
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16),
-                  ),
-                  const SizedBox(height: 2),
-                  if (listener.city != null) Text(listener.city!),
-                  if (listener.specialties.isNotEmpty)
-                    Text(
-                      listener.specialties.first,
-                      style: const TextStyle(color: Colors.pinkAccent),
+                    chat.otherUserName ?? 'Expert',
+                    style: TextStyle(
+                      fontWeight:
+                          hasUnread ? FontWeight.bold : FontWeight.w600,
+                      fontSize: 16,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
                   Text(
-                    '₹${listener.ratePerMinute.toInt()}/min',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    chat.lastMessage ?? 'Tap to start chatting',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: hasUnread
+                          ? Colors.black87
+                          : Colors.grey.shade600,
+                      fontWeight:
+                          hasUnread ? FontWeight.w500 : FontWeight.normal,
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
+
+            // Timestamp + unread badge
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.circle,
-                      size: 10,
-                      color: isOnline ? Colors.green : Colors.grey,
+                if (chat.lastMessageAt != null)
+                  Text(
+                    _formatTime(chat.lastMessageAt!),
+                    style: TextStyle(
+                      color: hasUnread ? Colors.pinkAccent : Colors.grey,
+                      fontSize: 12,
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      isOnline ? "Online" : "Offline",
-                      style: TextStyle(
-                        color: isOnline ? Colors.green : Colors.grey,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-
-                // Chat Now Button
-                ElevatedButton.icon(
-                  onPressed: isOnline
-                      ? () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ChatPage(
-                                expertName: listener.professionalName ?? 'Expert',
-                                imagePath: 'assets/images/khushi.jpg',
-                                otherUserId: listener.userId,
-                                otherUserAvatar: listener.avatarUrl,
-                              ),
-                            ),
-                          );
-                        }
-                      : null,
-                  icon: const Icon(Icons.chat_bubble_outline,
-                      size: 18, color: Colors.white),
-                  label: const Text(
-                    "Chat Now",
-                    style: TextStyle(color: Colors.white),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isOnline ? Colors.pinkAccent : Colors.grey,
-                    shape: RoundedRectangleBorder(
+                const SizedBox(height: 6),
+                if (hasUnread)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.pinkAccent,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                    child: Text(
+                      chat.unreadCount > 99
+                          ? '99+'
+                          : chat.unreadCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
-
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 16),
-                    Text(listener.rating.toStringAsFixed(1)),
-                  ],
-                ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================
+  // Helpers
+  // ============================================
+
+  String _formatTime(DateTime timestamp) {
+    final local = timestamp.toLocal();
+    final now = DateTime.now();
+    final diff = now.difference(local);
+
+    if (diff.inDays == 0 && now.day == local.day) {
+      final h = local.hour;
+      final m = local.minute.toString().padLeft(2, '0');
+      final period = h >= 12 ? 'PM' : 'AM';
+      final dh = h > 12 ? h - 12 : (h == 0 ? 12 : h);
+      return '$dh:$m $period';
+    } else if (diff.inDays <= 1 && now.day != local.day) {
+      return 'Yesterday';
+    } else if (diff.inDays < 7) {
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      return days[local.weekday - 1];
+    } else {
+      return '${local.day}/${local.month}/${local.year % 100}';
+    }
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.chat_bubble_outline,
+              size: 80, color: Colors.pinkAccent.withOpacity(0.5)),
+          const SizedBox(height: 16),
+          const Text(
+            'No chats yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF880E4F),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tap the + button to start a conversation',
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _openNewChatPicker,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text('New Chat',
+                style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.pinkAccent,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================
+// Bottom-sheet listener picker (start new chat with any listener)
+// ============================================
+
+class _ListenerPickerSheet extends StatefulWidget {
+  const _ListenerPickerSheet();
+
+  @override
+  State<_ListenerPickerSheet> createState() => _ListenerPickerSheetState();
+}
+
+class _ListenerPickerSheetState extends State<_ListenerPickerSheet> {
+  final ListenerService _listenerService = ListenerService();
+  final SocketService _socketService = SocketService();
+
+  List<models.Listener> _listeners = [];
+  bool _isLoading = true;
+  String _search = '';
+  final TextEditingController _ctrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    try {
+      // Fetch ALL listeners (online + offline)
+      final result = await _listenerService.getListeners(
+        sortBy: 'rating',
+        limit: 100,
+      );
+      if (result.success && mounted) {
+        setState(() {
+          _listeners = result.listeners;
+          _isLoading = false;
+        });
+      } else if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  List<models.Listener> get _filtered {
+    if (_search.isEmpty) return _listeners;
+    final q = _search.toLowerCase();
+    return _listeners.where((l) {
+      final name = l.professionalName?.toLowerCase() ?? '';
+      final specs = l.specialties.join(' ').toLowerCase();
+      return name.contains(q) || specs.contains(q);
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      builder: (_, scrollCtrl) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Text('Start New Chat',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF880E4F))),
+            const SizedBox(height: 8),
+            // Search
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _ctrl,
+                onChanged: (v) => setState(() => _search = v),
+                decoration: InputDecoration(
+                  hintText: 'Search experts...',
+                  prefixIcon:
+                      const Icon(Icons.search, color: Colors.pinkAccent),
+                  filled: true,
+                  fillColor: const Color(0xFFFFF1F5),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // List
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child:
+                          CircularProgressIndicator(color: Colors.pinkAccent))
+                  : _filtered.isEmpty
+                      ? const Center(
+                          child: Text('No experts found',
+                              style: TextStyle(color: Colors.grey)))
+                      : ListView.builder(
+                          controller: scrollCtrl,
+                          itemCount: _filtered.length,
+                          itemBuilder: (_, i) {
+                            final l = _filtered[i];
+                            final online = _socketService
+                                    .listenerOnlineMap[l.userId] ??
+                                l.isOnline;
+                            return ListTile(
+                              leading: Stack(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 24,
+                                    backgroundImage: l.avatarUrl != null
+                                        ? NetworkImage(l.avatarUrl!)
+                                        : const AssetImage(
+                                                'assets/images/khushi.jpg')
+                                            as ImageProvider,
+                                  ),
+                                  Positioned(
+                                    right: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      width: 12,
+                                      height: 12,
+                                      decoration: BoxDecoration(
+                                        color: online
+                                            ? Colors.green
+                                            : Colors.grey.shade400,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: Colors.white, width: 2),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              title: Text(
+                                l.professionalName ?? 'Expert',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600),
+                              ),
+                              subtitle: Text(
+                                l.specialties.isNotEmpty
+                                    ? l.specialties.first
+                                    : (online ? 'Online' : 'Offline'),
+                                style: TextStyle(
+                                  color: online
+                                      ? Colors.pinkAccent
+                                      : Colors.grey,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              trailing: Text(
+                                online ? 'Online' : 'Offline',
+                                style: TextStyle(
+                                  color: online
+                                      ? Colors.green
+                                      : Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              onTap: () => Navigator.pop(context, l),
+                            );
+                          },
+                        ),
             ),
           ],
         ),
