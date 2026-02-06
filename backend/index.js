@@ -22,7 +22,7 @@ import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import listenerRoutes from './routes/listeners.js';
 import callRoutes from './routes/calls.js';
-import chatRoutes from './routes/chats.js';
+import createChatsRouter from './routes/chats.js';
 import adminRoutes from './routes/admin.js';
 import User from './models/User.js';
 
@@ -93,7 +93,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/listeners', listenerRoutes);
 app.use('/api/calls', callRoutes);
-app.use('/api/chats', chatRoutes);
+app.use('/api/chats', createChatsRouter(io)); // Pass io for real-time message delivery
 app.use('/api/admin', adminRoutes);
 
 // ============================================

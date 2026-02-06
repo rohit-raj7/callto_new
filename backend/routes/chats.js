@@ -1,23 +1,26 @@
 import express from 'express';
-const router = express.Router();
 import { Chat, Message } from '../models/Chat.js';
 import { authenticate } from '../middleware/auth.js';
 
-// GET /api/chats
-// Get all chats for current user
-router.get('/', authenticate, async (req, res) => {
-  try {
-    const chats = await Chat.getUserChats(req.userId);
+// Factory function that creates router with socket.io instance
+export default function createChatsRouter(io) {
+  const router = express.Router();
 
-    res.json({
-      chats,
-      count: chats.length
-    });
-  } catch (error) {
-    console.error('Get chats error:', error);
-    res.status(500).json({ error: 'Failed to fetch chats' });
-  }
-});
+  // GET /api/chats
+  // Get all chats for current user
+  router.get('/', authenticate, async (req, res) => {
+    try {
+      const chats = await Chat.getUserChats(req.userId);
+
+      res.json({
+        chats,
+        count: chats.length
+      });
+    } catch (error) {
+      console.error('Get chats error:', error);
+      res.status(500).json({ error: 'Failed to fetch chats' });
+    }
+  });
 
 // POST /api/chats
 // Create or get chat with another user
@@ -129,6 +132,26 @@ router.post('/:chat_id/messages', authenticate, async (req, res) => {
       media_url
     });
 
+    // Emit to socket for real-time delivery (if io is available)
+    if (io) {
+      const messageData = {
+        chatId: req.params.chat_id,
+        message: {
+          ...message,
+          sender_name: 'User',
+        }
+      };
+
+      // Broadcast to all users in the chat room
+      io.to(`chat_${req.params.chat_id}`).emit('chat:message', messageData);
+
+      // Also send notification to the other user
+      const otherUserId = chat.user1_id === req.userId ? chat.user2_id : chat.user1_id;
+      io.to(`user_${otherUserId}`).emit('chat:new_message_notification', messageData);
+      
+      console.log(`[REST API] Message sent in chat ${req.params.chat_id}, emitted to socket`);
+    }
+
     res.status(201).json({
       message: 'Message sent',
       data: message
@@ -194,4 +217,5 @@ router.delete('/:chat_id', authenticate, async (req, res) => {
   }
 });
 
-export default router;
+  return router;
+}
