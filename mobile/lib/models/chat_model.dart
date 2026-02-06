@@ -40,9 +40,11 @@ class Chat {
   }
 
   /// Parse a timestamp string as UTC.
-  /// Backend sends UTC ISO strings (with 'Z' suffix after db.js fix).
-  /// If timezone info is missing, force UTC to prevent showing raw UTC values
-  /// as local time (which caused the wrong time display).
+  /// DEVICE-TIME FIX: Backend sends UTC ISO strings (with 'Z' suffix).
+  /// The db.js type parser appends 'Z' to raw TIMESTAMP values since all
+  /// database sessions are forced to UTC. If timezone info is missing,
+  /// we force UTC to prevent displaying raw UTC values as local time.
+  /// The client then calls .toLocal() to convert to device timezone.
   static DateTime? _parseAsUtc(String? value) {
     if (value == null || value.isEmpty) return null;
     final dt = DateTime.tryParse(value);
@@ -143,8 +145,11 @@ class Message {
   /// Check if message is from the specified user
   bool isFromUser(String userId) => senderId == userId;
 
-  /// Get formatted time — converts UTC timestamp to device local time for display
-  /// This ensures the displayed time matches the sender's actual send time
+  /// Get formatted time — converts UTC timestamp to device local time for display.
+  /// DEVICE-TIME FIX: createdAt is always stored as UTC (from server or forced
+  /// via _parseAsUtc). Calling .toLocal() converts to the device's timezone,
+  /// so the displayed time matches the user's actual device/system clock.
+  /// No hardcoded timezone offsets are used — .toLocal() uses the OS timezone.
   String get formattedTime {
     if (createdAt == null) return '';
     // createdAt is always UTC (from server or forced via _parseAsUtc)

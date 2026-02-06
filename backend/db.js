@@ -4,21 +4,21 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // ============================================
-// FIX: Override pg TIMESTAMP parser for correct timezone handling
-// The pool uses timezone 'Asia/Kolkata', so CURRENT_TIMESTAMP stores IST values
-// in TIMESTAMP (without timezone) columns. But pg interprets raw values as
-// Node.js local time (UTC on cloud servers), causing a timezone mismatch.
-// This parser correctly treats stored values as IST and converts to UTC ISO strings.
+// DEVICE-TIME FIX: Override pg TIMESTAMP parser for correct timezone handling
+// All database sessions are forced to UTC via pool.on('connect') below.
+// Raw TIMESTAMP WITHOUT TIMEZONE values from PostgreSQL are therefore in UTC.
+// This parser appends 'Z' suffix to produce proper UTC ISO 8601 strings.
+// No hardcoded timezone offsets — the mobile client converts UTC to device
+// local time using DateTime.toLocal() for correct display.
 // ============================================
 const pgTypes = pkg.types;
 
 // OID 1114 = TIMESTAMP WITHOUT TIMEZONE
 pgTypes.setTypeParser(1114, function parseTimestampAsUTC(val) {
   if (!val) return null;
-  // Raw value is in IST (session timezone 'Asia/Kolkata')
-  // Replace space with 'T' for ISO 8601 compliance, append IST offset
-  const isoStr = val.replace(' ', 'T') + '+05:30';
-  return new Date(isoStr).toISOString(); // Returns UTC string with 'Z' suffix
+  // Raw value is in UTC (session timezone forced to UTC via pool.on('connect'))
+  // Append 'Z' suffix so clients know this is a UTC ISO 8601 string
+  return val.replace(' ', 'T') + 'Z';
 });
 
 // Configure the PostgreSQL connection pool
@@ -39,7 +39,15 @@ const pool = new Pool({
   max: 5, // Reduced for serverless - each function instance gets its own pool
   idleTimeoutMillis: 10000, // Close idle connections faster in serverless
   connectionTimeoutMillis: 10000,
-  timezone: 'Asia/Kolkata' // Set timezone to IST for proper timestamp handling
+  // DEVICE-TIME FIX: Removed hardcoded timezone: 'Asia/Kolkata' — session
+  // timezone is set to UTC via pool.on('connect') below for consistency.
+});
+
+// DEVICE-TIME FIX: Force all database sessions to UTC so CURRENT_TIMESTAMP
+// always stores UTC values. This prevents timezone ambiguity with
+// TIMESTAMP WITHOUT TIMEZONE columns regardless of server location.
+pool.on('connect', (client) => {
+  client.query("SET timezone = 'UTC'");
 });
 
 // Test the database connection

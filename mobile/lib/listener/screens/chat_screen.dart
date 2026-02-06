@@ -405,7 +405,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// Parse a timestamp string as UTC. Server sends UTC ISO strings.
-  /// If timezone info is missing, force UTC to prevent wrong time display.
+  /// DEVICE-TIME FIX: If timezone info is missing, force UTC to prevent
+  /// wrong time display. Client converts to local via .toLocal().
   static DateTime? _parseAsUtc(String? value) {
     if (value == null || value.isEmpty) return null;
     final dt = DateTime.tryParse(value);
@@ -419,7 +420,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   String _formatTime(DateTime timestamp) {
-    // FIX: Convert UTC timestamp to device local time for correct display
+    // DEVICE-TIME FIX: Convert UTC timestamp to device local time for correct display.
+    // No hardcoded offsets — .toLocal() uses the device's OS timezone setting.
     final local = timestamp.toLocal();
     final now = DateTime.now();
     final difference = now.difference(local);

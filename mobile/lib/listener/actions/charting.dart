@@ -219,7 +219,23 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             
             if (optimisticIndex != -1) {
               print('[ChatPage-Listener] Replacing optimistic message with confirmed message');
-              _messages[optimisticIndex] = message;
+              // DEVICE-TIME FIX: Preserve the device local timestamp from the
+              // optimistic message for display. This ensures the sent message
+              // time always matches the device clock when the user pressed send
+              // (WhatsApp-style). Server time is only used for ordering/storage.
+              final deviceTime = _messages[optimisticIndex].createdAt;
+              _messages[optimisticIndex] = Message(
+                messageId: message.messageId,
+                chatId: message.chatId,
+                senderId: message.senderId,
+                messageType: message.messageType,
+                messageContent: message.messageContent,
+                mediaUrl: message.mediaUrl,
+                isRead: message.isRead,
+                createdAt: deviceTime, // Use device time, not server time
+                senderName: message.senderName,
+                senderAvatar: message.senderAvatar,
+              );
               return; // Already updated
             }
           }
@@ -346,7 +362,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // Create temporary message ID for optimistic update
     final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
     
-    // Optimistic update: Add message locally IMMEDIATELY (WhatsApp-style)
+    // DEVICE-TIME FIX: Use device local time for instant display.
+    // This timestamp matches the user's device clock at the moment they pressed send.
+    // It is NOT replaced by server time when the server confirms the message.
     final optimisticMessage = Message(
       messageId: tempId,
       chatId: _chatId!,
@@ -354,7 +372,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       senderName: 'You',
       messageType: 'text',
       messageContent: text,
-      createdAt: DateTime.now(),
+      createdAt: DateTime.now(), // Device local time — matches user's clock
       isRead: false,
     );
     
