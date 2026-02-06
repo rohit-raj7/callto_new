@@ -189,7 +189,12 @@ class Listener {
           WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '2 minutes' 
           THEN true 
           ELSE false 
-        END as is_online
+        END as is_online,
+        CASE 
+          WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '2 minutes' 
+          THEN 1 
+          ELSE 0 
+        END as online_sort
       FROM listeners l
       JOIN users u ON l.user_id = u.user_id
       WHERE u.is_active = TRUE
@@ -243,7 +248,7 @@ class Listener {
 
     // Sort by online status first (online listeners first), then by rating
     const sortBy = filters.sort_by || 'rating';
-    let orderClause = ' ORDER BY is_online DESC';
+    let orderClause = ' ORDER BY online_sort DESC';
     
     if (sortBy === 'rating') {
       orderClause += ', l.average_rating DESC, l.total_ratings DESC';
