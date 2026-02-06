@@ -109,6 +109,9 @@ const activeChannels = new Map(); // Map of channelName -> Set of userIds in cha
 const lastSeenMap = new Map(); // Map of userId -> timestamp
 const presenceTimeouts = new Map(); // Map of userId -> timeoutId
 
+// WhatsApp-style chat state tracking
+const userChatState = new Map(); // Map of userId -> { activelyViewingChatId, appState: 'foreground'|'background' }
+
 // Socket.IO connection handler
 io.on('connection', (socket) => {
   console.log(`[SOCKET] Connected: ${socket.id}`);
@@ -118,13 +121,14 @@ io.on('connection', (socket) => {
   // User joins (can be regular user or listener)
   socket.on('user:join', (data) => {
     // Support both old format (just userId string) and new format (object with userId, userName, avatar)
-    let userId, userName, userAvatar;
+    let userId, userName, userAvatar, activelyViewingChatId;
     if (typeof data === 'string') {
       userId = data;
     } else if (data && typeof data === 'object') {
       userId = data.userId;
       userName = data.userName;
       userAvatar = data.userAvatar;
+      activelyViewingChatId = data.activelyViewingChatId; // WhatsApp-style: which chat is open
     }
     
     if (!userId) return;
@@ -133,6 +137,12 @@ io.on('connection', (socket) => {
     socket.userAvatar = userAvatar;
     connectedUsers.set(userId, socket.id);
     lastSeenMap.set(userId, Date.now());
+    
+    // Initialize or update user chat state (WhatsApp-style tracking)
+    userChatState.set(userId, {
+      activelyViewingChatId: activelyViewingChatId || null,
+      appState: 'foreground'
+    });
     
     // Join user's personal room for notifications
     socket.join(`user_${userId}`);
@@ -145,7 +155,7 @@ io.on('connection', (socket) => {
     }
     
     io.emit('user:online', { userId });
-    console.log(`[SOCKET] User joined: ${userId} (${userName || 'unknown name'})`);
+    console.log(`[SOCKET] User joined: ${userId} (${userName || 'unknown name'}), activeChat: ${activelyViewingChatId || 'none'}`);
 
     // Send current online listeners to the newly joined user
     const onlineListeners = Array.from(listenerSockets.keys());
@@ -283,7 +293,7 @@ io.on('connection', (socket) => {
 
   // Join a chat room
   socket.on('chat:join', async (data) => {
-    const { chatId } = data || {};
+    const { chatId, isActivelyViewing = true } = data || {};
     if (!chatId || !socket.userId) {
       console.log(`[SOCKET] chat:join failed - missing chatId or userId`);
       return;
@@ -294,7 +304,14 @@ io.on('connection', (socket) => {
     socket.chatRooms = socket.chatRooms || new Set();
     socket.chatRooms.add(chatId);
     
-    console.log(`[SOCKET] User ${socket.userId} joined chat room: ${chatId}`);
+    // WhatsApp-style: Track which chat user is actively viewing
+    if (isActivelyViewing) {
+      const state = userChatState.get(socket.userId) || { appState: 'foreground' };
+      state.activelyViewingChatId = chatId;
+      userChatState.set(socket.userId, state);
+    }
+    
+    console.log(`[SOCKET] User ${socket.userId} joined chat room: ${chatId} (activelyViewing: ${isActivelyViewing})`);
 
     // Fetch and send chat history
     try {
@@ -320,7 +337,46 @@ io.on('connection', (socket) => {
     if (socket.chatRooms) {
       socket.chatRooms.delete(chatId);
     }
+    
+    // WhatsApp-style: Clear actively viewing state
+    const state = userChatState.get(socket.userId);
+    if (state && state.activelyViewingChatId === chatId) {
+      state.activelyViewingChatId = null;
+      userChatState.set(socket.userId, state);
+    }
+    
     console.log(`[SOCKET] User ${socket.userId} left chat room: ${chatId}`);
+  });
+
+  // WhatsApp-style: Update which chat user is actively viewing
+  socket.on('chat:set_active_viewing', (data) => {
+    const { chatId, isActivelyViewing } = data || {};
+    if (!socket.userId) return;
+    
+    const state = userChatState.get(socket.userId) || { appState: 'foreground' };
+    state.activelyViewingChatId = isActivelyViewing ? chatId : null;
+    userChatState.set(socket.userId, state);
+    
+    console.log(`[SOCKET] User ${socket.userId} set actively viewing: ${chatId || 'none'}`);
+  });
+
+  // WhatsApp-style: Track app foreground/background state
+  socket.on('user:app_state', (data) => {
+    const { userId, state: appState, activelyViewingChatId } = data || {};
+    if (!userId) return;
+    
+    const chatState = userChatState.get(userId) || {};
+    chatState.appState = appState || 'foreground';
+    
+    // Also update actively viewing chat if provided
+    if (appState === 'background') {
+      chatState.activelyViewingChatId = null; // Not viewing any chat when in background
+    } else if (activelyViewingChatId !== undefined) {
+      chatState.activelyViewingChatId = activelyViewingChatId;
+    }
+    
+    userChatState.set(userId, chatState);
+    console.log(`[SOCKET] User ${userId} app state: ${appState}, activeChat: ${chatState.activelyViewingChatId || 'none'}`);
   });
 
   // Send a message in a chat
@@ -354,17 +410,28 @@ io.on('connection', (socket) => {
         }
       };
 
-      // Broadcast message to all users in the chat room
+      // Broadcast message to all users in the chat room (real-time UI update)
       io.to(`chat_${chatId}`).emit('chat:message', messageData);
 
-      // Also notify the other user via their personal room (in case they're not in the chat room)
-      // Get the chat to find the other participant
+      // WhatsApp-style: Only send notification if other user is NOT actively viewing this chat
       const chat = await Chat.findById(chatId);
       if (chat) {
         const otherUserId = chat.user1_id === socket.userId ? chat.user2_id : chat.user1_id;
-        // Emit to user's personal room for notifications on chat list
-        io.to(`user_${otherUserId}`).emit('chat:new_message_notification', messageData);
-        console.log(`[SOCKET] Sent notification to user_${otherUserId}`);
+        const otherUserState = userChatState.get(otherUserId);
+        
+        // Check if other user is actively viewing this chat
+        const isOtherUserViewingThisChat = otherUserState && 
+          otherUserState.appState === 'foreground' && 
+          otherUserState.activelyViewingChatId === chatId;
+        
+        if (isOtherUserViewingThisChat) {
+          // User is viewing this chat - NO notification needed
+          console.log(`[SOCKET] User ${otherUserId} is viewing chat ${chatId} - skipping notification`);
+        } else {
+          // User is NOT viewing this chat - send notification
+          io.to(`user_${otherUserId}`).emit('chat:new_message_notification', messageData);
+          console.log(`[SOCKET] Sent notification to user_${otherUserId} (state: ${otherUserState?.appState || 'unknown'}, viewing: ${otherUserState?.activelyViewingChatId || 'none'})`);
+        }
       }
 
       console.log(`[SOCKET] Message sent in chat ${chatId} by ${socket.userId}`);
@@ -455,6 +522,7 @@ io.on('connection', (socket) => {
           connectedUsers.delete(userId);
           lastSeenMap.delete(userId);
           presenceTimeouts.delete(userId);
+          userChatState.delete(userId); // Clean up chat state on disconnect
           
           try {
             // await User.updateLastSeen(userId); 

@@ -225,12 +225,18 @@ const LandingPage = () => {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-20 px-4 bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto">
+      <section id="how-it-works" className="py-24 px-4 bg-gray-50 dark:bg-gray-900 relative overflow-hidden">
+        {/* Background Patterns */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-30 pointer-events-none">
+            <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-pink-200/20 rounded-full blur-[100px]" />
+            <div className="absolute top-[40%] -right-[10%] w-[50%] h-[50%] bg-purple-200/20 rounded-full blur-[100px]" />
+        </div>
+
+        <div className="max-w-7xl mx-auto relative z-10">
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-100px" }}
             variants={staggerContainer}
             className="text-center mb-20"
           >
@@ -238,13 +244,13 @@ const LandingPage = () => {
               variants={fadeInUp}
               className="inline-block mb-4"
             >
-              <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-4 py-2 rounded-full uppercase tracking-wider">
+              <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-4 py-2 rounded-full uppercase tracking-wider">
                 Simple & Effective
               </span>
             </motion.div>
             <motion.h2
               variants={fadeInUp}
-              className="text-5xl sm:text-6xl font-extrabold text-gray-900 dark:text-white mb-6 leading-tight"
+              className="text-4xl sm:text-6xl font-extrabold text-gray-900 dark:text-white mb-6 leading-tight"
             >
               How <span className="bg-gradient-to-r from-pink-500 to-indigo-600 bg-clip-text text-transparent">Callto</span> Works
             </motion.h2>
@@ -261,10 +267,10 @@ const LandingPage = () => {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="grid md:grid-cols-3 gap-8 lg:gap-12 relative max-w-6xl mx-auto pt-16"
+            className="grid md:grid-cols-3 gap-8 lg:gap-12 relative max-w-6xl mx-auto pt-10"
           >
             {/* Connecting Line (Desktop) */}
-            <div className="hidden md:block absolute top-16 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-pink-200 via-purple-200 to-indigo-200 dark:from-pink-900 dark:via-purple-900 dark:to-indigo-900 opacity-60" />
+            <div className="hidden md:block absolute top-24 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-pink-200 via-purple-200 to-indigo-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700" />
 
             {[
               {
@@ -272,6 +278,8 @@ const LandingPage = () => {
                 icon: UserCheck,
                 title: 'Create Account',
                 description: 'Sign up securely with your preferred method and customize your profile preferences.',
+                color: 'text-pink-600',
+                bg: 'bg-pink-50 dark:bg-pink-900/20',
                 details: ['Quick 2-minute setup', 'Secure authentication', 'Personalized profile']
               },
               {
@@ -279,6 +287,8 @@ const LandingPage = () => {
                 icon: Headphones,
                 title: 'Choose Listener',
                 description: 'Browse verified experts by topic or use our smart matching to find the perfect listener.',
+                color: 'text-purple-600',
+                bg: 'bg-purple-50 dark:bg-purple-900/20',
                 details: ['100+ verified experts', 'Topic-based filtering', 'Real user reviews']
               },
               {
@@ -286,47 +296,52 @@ const LandingPage = () => {
                 icon: Phone,
                 title: 'Connect & Talk',
                 description: 'Start a private voice call or chat instantly. Pay only for the time you talk.',
-                details: ['Crystal clear audio', 'Pay-per-minute', '100% Private']
+                color: 'text-indigo-600',
+                bg: 'bg-indigo-50 dark:bg-indigo-900/20',
+                details: ['Crystal clear audio', 'Pay-per-minute', '100% Private'],
+                hasVoice: true
               }
             ].map((step, index) => (
               <motion.div
                 key={index}
                 variants={fadeInUp}
-                className="relative z-10"
+                className="relative z-10 h-full"
               >
-                <div className="bg-white dark:bg-gray-800 rounded-[2rem] p-8 shadow-xl shadow-gray-200/40 dark:shadow-none border border-gray-100 dark:border-gray-700 h-full group transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:border-pink-100 dark:hover:border-pink-900/30">
-                  {/* Floating Gradient Step Badge */}
-                  <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
-                    <div className="relative group-hover:scale-110 transition-transform duration-300">
-                      <div className="w-24 h-24 rounded-full bg-white dark:bg-gray-800 p-2 shadow-xl ring-1 ring-gray-100 dark:ring-gray-700">
-                        <div className="w-full h-full rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-inner">
-                          {step.step}
-                        </div>
-                      </div>
-                      {/* Glow Effect behind badge */}
-                      <div className="absolute inset-0 bg-pink-500/20 rounded-full blur-xl -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-700 h-full group hover:-translate-y-2 transition-all duration-500">
+                  <div className="relative flex justify-center mb-8">
+                    <div className="w-20 h-20 rounded-2xl bg-white dark:bg-gray-800 shadow-lg flex items-center justify-center relative z-10 border border-gray-50 dark:border-gray-700 group-hover:scale-110 transition-transform duration-500">
+                       <span className={`text-2xl font-black bg-gradient-to-br from-pink-500 to-purple-600 bg-clip-text text-transparent`}>{step.step}</span>
                     </div>
+                    <div className={`absolute inset-0 ${step.bg} rounded-2xl blur-xl transform group-hover:scale-150 transition-transform duration-500 opacity-60`} />
                   </div>
 
-                  <div className="mt-14 text-center">
-                    {/* Icon with soft background */}
-                    <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20 rounded-2xl mb-6 text-pink-600 dark:text-pink-400 group-hover:scale-105 transition-transform duration-300 shadow-sm">
-                      <step.icon className="w-10 h-10" strokeWidth={1.5} />
-                    </div>
+                  <div className="text-center relative">
+                    {step.hasVoice && (
+                      <div className="absolute -top-40 left-1/2 transform -translate-x-1/2 w-full flex justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                         <div className="flex items-center space-x-1 h-8">
+                            {[1,2,3,4,5,4,3,2,1].map((h, i) => (
+                              <motion.div
+                                key={i}
+                                animate={{ height: [10, 30, 10] }}
+                                transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
+                                className="w-1 bg-indigo-500 rounded-full"
+                              />
+                            ))}
+                         </div>
+                      </div>
+                    )}
                     
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 tracking-tight">
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
                       {step.title}
                     </h3>
-                    
-                    <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-8 text-[15px]">
+                    <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-8">
                       {step.description}
                     </p>
 
-                    {/* Refined Details List */}
-                    <div className="bg-gray-50/80 dark:bg-gray-700/30 rounded-2xl p-5 space-y-3 text-left border border-gray-100 dark:border-gray-600/50">
+                    <div className="bg-gray-50 dark:bg-gray-700/30 rounded-2xl p-5 space-y-3 text-left border border-gray-100 dark:border-gray-600/50">
                       {step.details.map((detail, idx) => (
-                        <div key={idx} className="flex items-start text-[14px] text-gray-700 dark:text-gray-300">
-                          <CheckCircle2 className="w-5 h-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
+                        <div key={idx} className="flex items-start text-sm text-gray-700 dark:text-gray-300">
+                          <CheckCircle2 className={`w-4 h-4 mr-3 flex-shrink-0 mt-0.5 ${step.color}`} />
                           <span className="font-medium">{detail}</span>
                         </div>
                       ))}
@@ -335,32 +350,6 @@ const LandingPage = () => {
                 </div>
               </motion.div>
             ))}
-          </motion.div>
-
-          {/* Additional Trust Section */}
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeInUp}
-            className="mt-20 text-center"
-          >
-            <div className="inline-flex items-center justify-center space-x-8 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 px-8 py-6 rounded-2xl shadow-lg">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">2 min</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Average Setup</div>
-              </div>
-              <div className="w-px h-12 bg-gray-300 dark:bg-gray-600" />
-              <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">100%</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Confidential</div>
-              </div>
-              <div className="w-px h-12 bg-gray-300 dark:bg-gray-600" />
-              <div className="text-center">
-                <div className="text-3xl font-bold text-pink-600 dark:text-pink-400">24/7</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Available</div>
-              </div>
-            </div>
           </motion.div>
         </div>
       </section>
