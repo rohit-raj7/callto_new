@@ -3,6 +3,24 @@ const { Pool } = pkg;
 import dotenv from 'dotenv';
 dotenv.config();
 
+// ============================================
+// FIX: Override pg TIMESTAMP parser for correct timezone handling
+// The pool uses timezone 'Asia/Kolkata', so CURRENT_TIMESTAMP stores IST values
+// in TIMESTAMP (without timezone) columns. But pg interprets raw values as
+// Node.js local time (UTC on cloud servers), causing a timezone mismatch.
+// This parser correctly treats stored values as IST and converts to UTC ISO strings.
+// ============================================
+const pgTypes = pkg.types;
+
+// OID 1114 = TIMESTAMP WITHOUT TIMEZONE
+pgTypes.setTypeParser(1114, function parseTimestampAsUTC(val) {
+  if (!val) return null;
+  // Raw value is in IST (session timezone 'Asia/Kolkata')
+  // Replace space with 'T' for ISO 8601 compliance, append IST offset
+  const isoStr = val.replace(' ', 'T') + '+05:30';
+  return new Date(isoStr).toISOString(); // Returns UTC string with 'Z' suffix
+});
+
 // Configure the PostgreSQL connection pool
 // Optimized for serverless environments
 const pool = new Pool({

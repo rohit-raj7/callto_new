@@ -336,10 +336,20 @@ io.on('connection', (socket) => {
     // Fetch and send chat history
     try {
       const messages = await Message.getChatMessages(chatId, 50, 0);
+      // FIX: Ensure all message timestamps are UTC ISO strings for consistent client parsing
+      const normalizedMessages = messages.map(msg => ({
+        ...msg,
+        created_at: msg.created_at instanceof Date
+          ? msg.created_at.toISOString()
+          : msg.created_at,
+        read_at: msg.read_at instanceof Date
+          ? msg.read_at.toISOString()
+          : msg.read_at,
+      }));
       socket.emit('chat:history', {
         chatId,
-        messages,
-        count: messages.length
+        messages: normalizedMessages,
+        count: normalizedMessages.length
       });
     } catch (error) {
       console.error(`[SOCKET] Error fetching chat history:`, error);
@@ -422,6 +432,11 @@ io.on('connection', (socket) => {
         chatId,
         message: {
           ...message,
+          // FIX: Ensure created_at is always a UTC ISO string for consistent client parsing
+          // The pg type parser in db.js now returns ISO strings, but this is defense-in-depth
+          created_at: message.created_at instanceof Date
+            ? message.created_at.toISOString()
+            : message.created_at,
           sender_name: socket.userName || 'Unknown',
           sender_avatar: socket.userAvatar
         }

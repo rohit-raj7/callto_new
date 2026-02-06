@@ -85,9 +85,11 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     final messageContent = messageData['message_content']?.toString() ?? '';
+    // FIX: Parse timestamp as UTC — server sends UTC ISO strings.
+    // Fallback to DateTime.now() only if created_at is missing.
     final createdAt = messageData['created_at'] != null
-        ? DateTime.tryParse(messageData['created_at'].toString())
-        : DateTime.now();
+        ? _parseAsUtc(messageData['created_at'].toString())
+        : DateTime.now().toUtc();
 
     setState(() {
       final idx = _chats.indexWhere((c) => c.chatId == chatId);
@@ -449,7 +451,22 @@ class _ChatScreenState extends State<ChatScreen> {
   // Helpers
   // ============================================
 
+  /// Parse a timestamp string as UTC. Server sends UTC ISO strings.
+  /// If timezone info is missing, force UTC to prevent wrong time display.
+  static DateTime? _parseAsUtc(String? value) {
+    if (value == null || value.isEmpty) return null;
+    final dt = DateTime.tryParse(value);
+    if (dt == null) return null;
+    if (dt.isUtc) return dt;
+    return DateTime.utc(
+      dt.year, dt.month, dt.day,
+      dt.hour, dt.minute, dt.second,
+      dt.millisecond, dt.microsecond,
+    );
+  }
+
   String _formatTime(DateTime timestamp) {
+    // FIX: Convert UTC timestamp to device local time for correct display
     final local = timestamp.toLocal();
     final now = DateTime.now();
     final diff = now.difference(local);

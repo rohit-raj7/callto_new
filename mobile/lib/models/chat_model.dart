@@ -29,16 +29,31 @@ class Chat {
       chatId: json['chat_id']?.toString() ?? '',
       user1Id: json['user1_id']?.toString() ?? '',
       user2Id: json['user2_id']?.toString() ?? '',
-      lastMessageAt: json['last_message_at'] != null 
-          ? DateTime.tryParse(json['last_message_at']) 
-          : null,
-      createdAt: json['created_at'] != null 
-          ? DateTime.tryParse(json['created_at']) 
-          : null,
+      // FIX: Parse timestamps as UTC — server stores/sends UTC timestamps
+      lastMessageAt: _parseAsUtc(json['last_message_at']?.toString()),
+      createdAt: _parseAsUtc(json['created_at']?.toString()),
       otherUserName: json['other_user_name'],
       otherUserAvatar: json['other_user_avatar'],
       lastMessage: json['last_message'],
       unreadCount: _parseInt(json['unread_count']),
+    );
+  }
+
+  /// Parse a timestamp string as UTC.
+  /// Backend sends UTC ISO strings (with 'Z' suffix after db.js fix).
+  /// If timezone info is missing, force UTC to prevent showing raw UTC values
+  /// as local time (which caused the wrong time display).
+  static DateTime? _parseAsUtc(String? value) {
+    if (value == null || value.isEmpty) return null;
+    final dt = DateTime.tryParse(value);
+    if (dt == null) return null;
+    // If already UTC (has 'Z' or offset in string), return as-is
+    if (dt.isUtc) return dt;
+    // No timezone info in string — treat as UTC since backend stores UTC
+    return DateTime.utc(
+      dt.year, dt.month, dt.day,
+      dt.hour, dt.minute, dt.second,
+      dt.millisecond, dt.microsecond,
     );
   }
 
@@ -97,9 +112,8 @@ class Message {
       messageContent: json['message_content'] ?? '',
       mediaUrl: json['media_url'],
       isRead: _parseBool(json['is_read']),
-      createdAt: json['created_at'] != null 
-          ? DateTime.tryParse(json['created_at']) 
-          : null,
+      // FIX: Parse timestamp as UTC — server sends UTC ISO strings
+      createdAt: Chat._parseAsUtc(json['created_at']?.toString()),
       senderName: json['sender_name'],
       senderAvatar: json['sender_avatar'],
     );
@@ -129,9 +143,12 @@ class Message {
   /// Check if message is from the specified user
   bool isFromUser(String userId) => senderId == userId;
 
-  /// Get formatted time (converts UTC to device local time)
+  /// Get formatted time — converts UTC timestamp to device local time for display
+  /// This ensures the displayed time matches the sender's actual send time
   String get formattedTime {
     if (createdAt == null) return '';
+    // createdAt is always UTC (from server or forced via _parseAsUtc)
+    // .toLocal() converts to the device's timezone for correct display
     final local = createdAt!.toLocal();
     final hour = local.hour;
     final minute = local.minute.toString().padLeft(2, '0');

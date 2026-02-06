@@ -138,6 +138,10 @@ router.post('/:chat_id/messages', authenticate, async (req, res) => {
         chatId: req.params.chat_id,
         message: {
           ...message,
+          // FIX: Ensure created_at is a UTC ISO string for consistent client parsing
+          created_at: message.created_at instanceof Date
+            ? message.created_at.toISOString()
+            : message.created_at,
           sender_name: 'User',
         }
       };
