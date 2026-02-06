@@ -649,7 +649,14 @@ async function processNotifications() {
         users = users.rows;
       }
       for (const u of users) {
-        await NotificationDelivery.ensure(outbox.id, u.user_id);
+        // Use client (transaction) instead of pool for delivery tracking
+        await client.query(
+          `INSERT INTO notification_deliveries (outbox_id, user_id)
+           VALUES ($1, $2)
+           ON CONFLICT (outbox_id, user_id) DO UPDATE SET outbox_id = EXCLUDED.outbox_id
+           RETURNING *`,
+          [outbox.id, u.user_id]
+        );
         const inserted = await client.query(
           `INSERT INTO notifications (user_id, title, message, notification_type, is_read, data, source_outbox_id)
            VALUES ($1, $2, $3, $4, FALSE, $5::jsonb, $6)
@@ -679,14 +686,42 @@ async function processNotifications() {
               await sendPushFCM(u.fcm_token, outbox.title, outbox.body, { outboxId: String(outbox.id) });
             } catch {}
           }
-          await NotificationDelivery.markSent(outbox.id, u.user_id);
+          // Mark delivery sent within transaction
+          await client.query(
+            `UPDATE notification_deliveries SET status = 'SENT', delivered_at = CURRENT_TIMESTAMP
+             WHERE outbox_id = $1 AND user_id = $2`,
+            [outbox.id, u.user_id]
+          );
         }
       }
-      await NotificationOutbox.markSent(outbox.id);
+      // Mark outbox as SENT within transaction
+      await client.query(
+        `UPDATE notification_outbox SET status = 'SENT', delivered_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [outbox.id]
+      );
+      // Handle recurring notifications (daily/weekly)
+      if (outbox.repeat_interval && outbox.schedule_at) {
+        const interval = outbox.repeat_interval === 'daily' ? '1 day' : '7 days';
+        await client.query(
+          `INSERT INTO notification_outbox (title, body, target_role, target_user_ids, schedule_at, repeat_interval, created_by)
+           VALUES ($1, $2, $3, $4, $5::timestamp + $6::interval, $7, $8)`,
+          [
+            outbox.title,
+            outbox.body,
+            outbox.target_role,
+            outbox.target_user_ids,
+            outbox.schedule_at,
+            interval,
+            outbox.repeat_interval,
+            outbox.created_by
+          ]
+        );
+      }
     }
     await client.query('COMMIT');
   } catch (e) {
     await client.query('ROLLBACK');
+    console.error('processNotifications error:', e.message);
   } finally {
     client.release();
   }
@@ -741,16 +776,38 @@ async function startServer() {
       process.exit(1);
     }
 
-    // Start server
-    server.listen(PORT, () => {
-      console.log('\n' + '='.repeat(50));
-      console.log(`🚀 Call To Backend Server`);
-      console.log(`📡 Environment: ${config.NODE_ENV}`);
-      console.log(`🌐 Server running on port ${PORT}`);
-      console.log(`🔌 Socket.IO ready for connections`);
-      console.log(`📊 API endpoints available at http://localhost:${PORT}/api`);
-      console.log('='.repeat(50) + '\n');
-    });
+    const listenWithFallback = (initialPort, attempts = 8) =>
+      new Promise((resolve, reject) => {
+        let port = Number(initialPort) || 3002;
+        let tries = 0;
+        const tryListen = () => {
+          const onError = (err) => {
+            server.off('error', onError);
+            if (err && err.code === 'EADDRINUSE' && tries < attempts - 1) {
+              port += 1;
+              tries += 1;
+              tryListen();
+            } else {
+              reject(err);
+            }
+          };
+          server.once('error', onError);
+          server.listen(port, () => {
+            server.off('error', onError);
+            resolve(port);
+          });
+        };
+        tryListen();
+      });
+
+    const boundPort = await listenWithFallback(PORT, 8);
+    console.log('\n' + '='.repeat(50));
+    console.log(`🚀 Call To Backend Server`);
+    console.log(`📡 Environment: ${config.NODE_ENV}`);
+    console.log(`🌐 Server running on port ${boundPort}`);
+    console.log(`🔌 Socket.IO ready for connections`);
+    console.log(`📊 API endpoints available at http://localhost:${boundPort}/api`);
+    console.log('='.repeat(50) + '\n');
     setInterval(processNotifications, 60 * 1000);
   } catch (error) {
     console.error('❌ Failed to start server:', error);

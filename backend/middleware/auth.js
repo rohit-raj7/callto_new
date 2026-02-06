@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Admin from '../models/Admin.js';
+import config from '../config/config.js';
 
 // Middleware to authenticate user via JWT
 const authenticate = async (req, res, next) => {
@@ -15,7 +16,7 @@ const authenticate = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, config.jwt.secret);
 
     // Get user from database
     const user = await User.findById(decoded.user_id);
@@ -75,7 +76,7 @@ const authenticateAdmin = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, config.jwt.secret);
 
     // Check if it's an admin token (has admin_id)
     if (!decoded.admin_id) {

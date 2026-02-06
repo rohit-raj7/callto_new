@@ -1,8 +1,15 @@
 import axios from 'axios';
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ||'https://call-to.onrender.com/api'||  'http://localhost:3002/api',
-});
+const resolvedBase =
+  typeof import.meta.env.VITE_API_BASE_URL === 'string' && import.meta.env.VITE_API_BASE_URL.length > 0
+    ? import.meta.env.VITE_API_BASE_URL
+    : 'https://call-to.onrender.com/api';
+const localFallbacks = [
+  'http://localhost:3002/api',
+  'http://127.0.0.1:3002/api'
+];
+const fallbackBases = [resolvedBase, ...localFallbacks.filter((b) => b !== resolvedBase)];
+const api = axios.create({ baseURL: resolvedBase });
 
 // Request interceptor to add Authorization header
 api.interceptors.request.use(
@@ -21,9 +28,35 @@ api.interceptors.request.use(
 // Response interceptor to handle errors
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const config = error.config;
+    const isNetworkError = error.code === 'ERR_NETWORK';
+    const isNotFoundOutbox =
+      error.response?.status === 404 && config && typeof config.url === 'string' && /\/notifications\/outbox/.test(config.url);
+    if ((isNetworkError || isNotFoundOutbox) && config && !config.__retryWithFallback) {
+      const baseBefore = config.baseURL || api.defaults.baseURL;
+      const startIndex =
+        fallbackBases.indexOf(baseBefore) !== -1 ? fallbackBases.indexOf(baseBefore) : fallbackBases.indexOf(api.defaults.baseURL);
+      for (let i = startIndex + 1; i < fallbackBases.length; i++) {
+        api.defaults.baseURL = fallbackBases[i];
+        if (config.baseURL) delete config.baseURL;
+        if (typeof config.url === 'string' && /^https?:\/\//i.test(config.url)) {
+          try {
+            const u = new URL(config.url);
+            config.url = `${u.pathname}${u.search}${u.hash}`;
+          } catch {
+            void 0;
+          }
+        }
+        config.__retryWithFallback = true;
+        try {
+          return await api.request(config);
+        } catch (e) {
+          console.warn('API fallback failed', e);
+        }
+      }
+    }
     if (error.response?.status === 401) {
-      // Token expired or invalid, redirect to login
       localStorage.removeItem('adminToken');
       window.location.href = '/admin/login';
     }
@@ -45,5 +78,8 @@ export const deleteListener = (listener_id) => api.delete(`/listeners/${listener
 
 // Admin methods
 export const getAdminListeners = () => api.get('/admin/listeners');
+export const getOutbox = (params = {}) => api.get('/notifications/outbox', { params });
+export const updateOutbox = (id, payload) => api.put(`/notifications/outbox/${id}`, payload);
+export const deleteOutbox = (id) => api.delete(`/notifications/outbox/${id}`);
 
 export default api;

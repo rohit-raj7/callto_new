@@ -80,6 +80,29 @@ async function ensureSchema() {
     // Ensure UUID function is available
     await pool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
 
+    // Terminate any idle-in-transaction sessions left by previously killed processes
+    await pool.query(`
+      SELECT pg_terminate_backend(pid)
+      FROM pg_stat_activity
+      WHERE state = 'idle in transaction' AND pid <> pg_backend_pid()
+    `);
+
+    // Create admins table FIRST (notification_outbox references it)
+    const createAdminsSql = `
+      CREATE TABLE IF NOT EXISTS admins (
+        admin_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        full_name VARCHAR(100),
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_login TIMESTAMP
+      );
+    `;
+    await pool.query(createAdminsSql);
+    console.log('✓ Ensured admins table exists');
+
     const createOutboxSql = `
       CREATE TABLE IF NOT EXISTS notification_outbox (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -118,27 +141,17 @@ async function ensureSchema() {
     `;
     await pool.query(createDeliveriesSql);
 
+    // Add repeat_interval column if missing
+    const alterOutboxSql = `
+      ALTER TABLE notification_outbox ADD COLUMN IF NOT EXISTS repeat_interval VARCHAR(20) DEFAULT NULL;
+    `;
+    await pool.query(alterOutboxSql);
+
     const alterNotificationsSql = `
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS source_outbox_id UUID;
       CREATE INDEX IF NOT EXISTS idx_notifications_source_outbox ON notifications(source_outbox_id);
     `;
     await pool.query(alterNotificationsSql);
-
-    // Create admins table if it doesn't exist
-    const createAdminsSql = `
-      CREATE TABLE IF NOT EXISTS admins (
-        admin_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        full_name VARCHAR(100),
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        last_login TIMESTAMP
-      );
-    `;
-    await pool.query(createAdminsSql);
-    console.log('✓ Ensured admins table exists');
 
     // Add commonly used social auth columns if they don't exist yet
     const alterSql = `

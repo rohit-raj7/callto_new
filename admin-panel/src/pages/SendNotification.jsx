@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Bell, Calendar, Clock, Send, Smartphone, Users, Headphones, Sparkles } from 'lucide-react';
 /* eslint-disable no-unused-vars */
 import { motion, AnimatePresence } from 'framer-motion';
-import api from '../services/api';
+import api, { getOutbox, updateOutbox, deleteOutbox } from '../services/api';
 
 const NotificationPanel = ({
   title,
@@ -331,6 +331,23 @@ const SendNotification = () => {
   const [sendingListener, setSendingListener] = useState(false);
   const [feedbackUser, setFeedbackUser] = useState(null);
   const [feedbackListener, setFeedbackListener] = useState(null);
+  const [outboxLoading, setOutboxLoading] = useState(false);
+  const [outboxError, setOutboxError] = useState(null);
+  const [outboxItems, setOutboxItems] = useState([]);
+  const groupedOutbox = useMemo(() => {
+    const users = outboxItems.filter((o) => o.target_role === 'USER');
+    const listeners = outboxItems.filter((o) => o.target_role === 'LISTENER');
+    return { users, listeners };
+  }, [outboxItems]);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editBody, setEditBody] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [editRepeat, setEditRepeat] = useState('');
+  const [editTargetAll, setEditTargetAll] = useState(true);
+  const [editTargetIds, setEditTargetIds] = useState('');
 
   const buildScheduleAt = (date, time) => {
     if (!date || !time) return null;
@@ -355,6 +372,8 @@ const SendNotification = () => {
     const targetAll = isUser ? userTargetAll : listenerTargetAll;
     const idsText = isUser ? userTargetIds : listenerTargetIds;
     const targetUserIds = targetAll ? null : parseIds(idsText);
+    const schedEnabled = isUser ? userScheduleEnabled : listenerScheduleEnabled;
+    const repeat = isUser ? userRepeat : listenerRepeat;
 
     if (!title || !body) {
       (isUser ? setFeedbackUser : setFeedbackListener)({ type: 'error', message: 'Title and Message are required' });
@@ -368,9 +387,11 @@ const SendNotification = () => {
         body,
         targetRole: role,
         targetUserIds,
-        scheduleAt,
+        scheduleAt: schedEnabled ? scheduleAt : null,
+        repeatInterval: schedEnabled ? repeat : null,
       });
       (isUser ? setFeedbackUser : setFeedbackListener)({ type: 'success', message: 'Notification scheduled' });
+      await fetchOutbox();
     } catch (e) {
       (isUser ? setFeedbackUser : setFeedbackListener)({ type: 'error', message: 'Failed to schedule' });
     } finally {
@@ -378,7 +399,78 @@ const SendNotification = () => {
     }
   };
 
+  const fetchOutbox = async () => {
+    setOutboxLoading(true);
+    setOutboxError(null);
+    try {
+      const res = await getOutbox({ page: 1, limit: 100 });
+      setOutboxItems(res.data?.outbox || []);
+    } catch (e) {
+      setOutboxError('Failed to load scheduled notifications');
+    } finally {
+      setOutboxLoading(false);
+    }
+  };
+
+  const openEdit = (item) => {
+    setEditItem(item);
+    setEditTitle(item.title || '');
+    setEditBody(item.body || '');
+    const d = item.schedule_at ? new Date(item.schedule_at) : null;
+    setEditDate(d ? String(d.toISOString()).slice(0, 10) : '');
+    setEditTime(d ? d.toISOString().slice(11, 16) : '');
+    setEditRepeat(item.repeat_interval || '');
+    const hasIds = Array.isArray(item.target_user_ids) && item.target_user_ids.length > 0;
+    setEditTargetAll(!hasIds);
+    setEditTargetIds(hasIds ? item.target_user_ids.join(',') : '');
+    setEditOpen(true);
+  };
+
+  const closeEdit = () => {
+    setEditOpen(false);
+    setEditItem(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editItem) return;
+    const scheduleAt = editDate && editTime ? new Date(`${editDate}T${editTime}:00`).toISOString() : null;
+    const targetUserIds = editTargetAll
+      ? null
+      : editTargetIds
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+    const payload = {
+      title: editTitle,
+      body: editBody,
+      scheduleAt,
+      repeatInterval: editRepeat || null,
+      targetUserIds
+    };
+    try {
+      await updateOutbox(editItem.id, payload);
+      closeEdit();
+      await fetchOutbox();
+    } catch {
+      setOutboxError('Failed to update notification');
+    }
+  };
+
+  const confirmDelete = async (item) => {
+    try {
+      await deleteOutbox(item.id);
+      await fetchOutbox();
+    } catch {
+      setOutboxError('Failed to delete notification');
+    }
+  };
+
+  useEffect(() => {
+    fetchOutbox();
+  }, []);
+
   return (
+    <>
     <div className="min-h-screen bg-[#FDF2F8] dark:bg-gray-950 p-4 lg:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="relative mb-12 overflow-hidden rounded-3xl bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 p-8 lg:p-12 shadow-2xl shadow-pink-200 dark:shadow-none">
@@ -466,8 +558,255 @@ const SendNotification = () => {
             feedback={feedbackListener}
           />
         </div>
+        <div className="mt-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xl p-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Bell className="w-5 h-5" />
+                Scheduled Notifications
+              </h3>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1">
+                All pending and recent notifications
+              </p>
+            </div>
+            <button
+              onClick={fetchOutbox}
+              className="px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-sm font-bold"
+              type="button"
+            >
+              Refresh
+            </button>
+          </div>
+          {outboxLoading && (
+            <div className="mt-6 text-sm font-medium text-gray-500 dark:text-gray-400">Loading…</div>
+          )}
+          {outboxError && (
+            <div className="mt-6 text-sm font-medium text-red-600">{outboxError}</div>
+          )}
+          {!outboxLoading && !outboxError && (
+            <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="rounded-xl border border-gray-100 dark:border-gray-700 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="w-4 h-4 text-pink-600" />
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-200">Users</span>
+                </div>
+                <div className="space-y-3">
+                  {groupedOutbox.users.length === 0 && (
+                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400">No scheduled items</div>
+                  )}
+                  {groupedOutbox.users.map((item) => (
+                    <div key={item.id} className="p-4 rounded-lg bg-gray-50/50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-bold text-gray-800 dark:text-gray-200">{item.title}</div>
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                          item.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                          item.status === 'SENT' ? 'bg-emerald-100 text-emerald-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {item.status}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{item.body}</div>
+                      <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px]">
+                        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>{item.schedule_at ? new Date(item.schedule_at).toLocaleString() : 'Immediate'}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                          <Users className="w-3.5 h-3.5" />
+                          <span>{Array.isArray(item.target_user_ids) && item.target_user_ids.length > 0 ? `Selected (${item.target_user_ids.length})` : 'All users'}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{new Date(item.created_at).toLocaleString()}</span>
+                        </div>
+                        {item.repeat_interval && (
+                          <div className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-bold">
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span>Repeats {item.repeat_interval}</span>
+                          </div>
+                        )}
+                        <div className="ml-auto flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(item)}
+                            className="px-3 py-1 rounded-lg text-xs font-bold bg-yellow-500 text-white hover:bg-yellow-600"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => confirmDelete(item)}
+                            className="px-3 py-1 rounded-lg text-xs font-bold bg-red-500 text-white hover:bg-red-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-xl border border-gray-100 dark:border-gray-700 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Headphones className="w-4 h-4 text-purple-600" />
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-200">Listeners</span>
+                </div>
+                <div className="space-y-3">
+                  {groupedOutbox.listeners.length === 0 && (
+                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400">No scheduled items</div>
+                  )}
+                  {groupedOutbox.listeners.map((item) => (
+                    <div key={item.id} className="p-4 rounded-lg bg-gray-50/50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-bold text-gray-800 dark:text-gray-200">{item.title}</div>
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                          item.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                          item.status === 'SENT' ? 'bg-emerald-100 text-emerald-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {item.status}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{item.body}</div>
+                      <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px]">
+                        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>{item.schedule_at ? new Date(item.schedule_at).toLocaleString() : 'Immediate'}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                          <Headphones className="w-3.5 h-3.5" />
+                          <span>{Array.isArray(item.target_user_ids) && item.target_user_ids.length > 0 ? `Selected (${item.target_user_ids.length})` : 'All listeners'}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{new Date(item.created_at).toLocaleString()}</span>
+                        </div>
+                        {item.repeat_interval && (
+                          <div className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-bold">
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span>Repeats {item.repeat_interval}</span>
+                          </div>
+                        )}
+                        <div className="ml-auto flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(item)}
+                            className="px-3 py-1 rounded-lg text-xs font-bold bg-yellow-500 text-white hover:bg-yellow-600"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => confirmDelete(item)}
+                            className="px-3 py-1 rounded-lg text-xs font-bold bg-red-500 text-white hover:bg-red-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
+    {editOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="w-full max-w-lg bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+          <div className="text-lg font-bold text-gray-900 dark:text-white mb-4">Edit Notification</div>
+          <div className="space-y-4">
+            <input
+              type="text"
+              className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900 text-gray-900 dark:text-white"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              placeholder="Title"
+            />
+            <textarea
+              rows={4}
+              className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900 text-gray-900 dark:text-white"
+              value={editBody}
+              onChange={(e) => setEditBody(e.target.value)}
+              placeholder="Message"
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="date"
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900 text-gray-900 dark:text-white"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+              />
+              <input
+                type="time"
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900 text-gray-900 dark:text-white"
+                value={editTime}
+                onChange={(e) => setEditTime(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-3">
+              {['', 'daily', 'weekly'].map((opt) => (
+                <button
+                  key={opt || 'none'}
+                  type="button"
+                  onClick={() => setEditRepeat(opt)}
+                  className={`px-3 py-2 rounded-xl border text-sm font-bold ${
+                    editRepeat === opt ? 'border-pink-500 text-pink-700' : 'border-gray-200 text-gray-500'
+                  }`}
+                >
+                  {opt ? `Repeat ${opt}` : 'No repeat'}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setEditTargetAll(true)}
+                className={`px-3 py-2 rounded-xl border text-sm font-bold ${editTargetAll ? 'border-pink-500 text-pink-700' : 'border-gray-200 text-gray-500'}`}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditTargetAll(false)}
+                className={`px-3 py-2 rounded-xl border text-sm font-bold ${!editTargetAll ? 'border-pink-500 text-pink-700' : 'border-gray-200 text-gray-500'}`}
+              >
+                Selected IDs
+              </button>
+            </div>
+            {!editTargetAll && (
+              <input
+                type="text"
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900 text-gray-900 dark:text-white"
+                value={editTargetIds}
+                onChange={(e) => setEditTargetIds(e.target.value)}
+                placeholder="id1, id2, id3"
+              />
+            )}
+          </div>
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={closeEdit}
+              className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 dark:border-gray-700 dark:text-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={saveEdit}
+              className="px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 
