@@ -192,10 +192,17 @@ class Listener {
         END as is_online
       FROM listeners l
       JOIN users u ON l.user_id = u.user_id
-      WHERE l.is_available = TRUE AND u.is_active = TRUE
+      WHERE u.is_active = TRUE
     `;
     const values = [];
     let paramIndex = 1;
+
+    // Only filter by is_available if explicitly requested
+    if (filters.is_available !== undefined) {
+      query += ` AND l.is_available = $${paramIndex}`;
+      values.push(filters.is_available);
+      paramIndex++;
+    }
 
     // Filter by specialty
     if (filters.specialty) {
@@ -268,8 +275,7 @@ class Listener {
         END as is_online
       FROM listeners l
       JOIN users u ON l.user_id = u.user_id
-      WHERE l.is_available = TRUE 
-        AND u.is_active = TRUE
+      WHERE u.is_active = TRUE
         AND (
           l.professional_name ILIKE $1 
           OR u.city ILIKE $1

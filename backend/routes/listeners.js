@@ -20,7 +20,10 @@ router.get('/', async (req, res) => {
       offset: req.query.offset ? parseInt(req.query.offset) : 0
     };
 
+    console.log('[LISTENERS_ROUTE] Fetching listeners with filters:', filters);
+
     const listeners = await Listener.getAll(filters);
+    console.log('[LISTENERS_ROUTE] Found', listeners.length, 'listeners from database');
 
     // Add avatar_url alias from profile_image and rating alias for frontend compatibility
     const listenersWithAvatar = listeners.map(listener => ({
@@ -28,6 +31,8 @@ router.get('/', async (req, res) => {
       avatar_url: listener.profile_image || null,
       rating: listener.average_rating || 0
     }));
+
+    console.log('[LISTENERS_ROUTE] Returning', listenersWithAvatar.length, 'listeners');
 
     res.json({
       listeners: listenersWithAvatar,

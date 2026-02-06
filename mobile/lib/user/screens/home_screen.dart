@@ -61,18 +61,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       // Fetch all listeners (online and offline) with high limit
+      print('[HOME] Fetching listeners...');
       final result = await _listenerService.getListeners(limit: 100);
+      print('[HOME] Result success: ${result.success}, count: ${result.listeners.length}');
+      
       if (result.success) {
+        // Log all fetched listeners for debugging
+        for (var listener in result.listeners) {
+          print('[HOME] Listener: ${listener.professionalName}, ID: ${listener.listenerId}, userId: ${listener.userId}, isAvailable: ${listener.isAvailable}');
+        }
+        
         setState(() {
           _listeners = result.listeners;
           _filterListeners();
         });
+        print('[HOME] Filtered listeners count: ${_filteredListeners.length}');
       } else {
+        print('[HOME] Failed to load listeners: ${result.error}');
         setState(() {
           _error = 'Failed to load listeners';
         });
       }
     } catch (e) {
+      print('[HOME] Error loading listeners: $e');
       setState(() {
         _error = 'Error: $e';
       });

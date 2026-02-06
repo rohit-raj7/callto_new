@@ -33,16 +33,30 @@ class ListenerService {
     if (minRating != null) queryParams['min_rating'] = minRating.toString();
     if (city != null) queryParams['city'] = city;
 
+    print('[LISTENER_SERVICE] Fetching listeners with params: $queryParams');
+    
     final response = await _api.get(
       ApiConfig.listeners,
       queryParams: queryParams,
     );
 
+    print('[LISTENER_SERVICE] Response success: ${response.isSuccess}, data keys: ${response.data?.keys}');
+
     if (response.isSuccess) {
       final List<dynamic> listenersJson = response.data['listeners'] ?? [];
-      final listeners = listenersJson
-          .map((json) => Listener.fromJson(json))
-          .toList();
+      print('[LISTENER_SERVICE] Raw listeners count from API: ${listenersJson.length}');
+      
+      final listeners = <Listener>[];
+      for (var json in listenersJson) {
+        try {
+          final listener = Listener.fromJson(json);
+          listeners.add(listener);
+        } catch (e) {
+          print('[LISTENER_SERVICE] Error parsing listener JSON: $e, data: $json');
+        }
+      }
+      
+      print('[LISTENER_SERVICE] Parsed listeners count: ${listeners.length}');
       
       return ListenerResult(
         success: true,
@@ -50,6 +64,7 @@ class ListenerService {
         count: response.data['count'] ?? listeners.length,
       );
     } else {
+      print('[LISTENER_SERVICE] Error: ${response.error}');
       return ListenerResult(
         success: false,
         error: response.error ?? 'Failed to fetch listeners',
