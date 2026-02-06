@@ -328,6 +328,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _typingSubscription?.cancel();
     _readSubscription?.cancel();
     _errorSubscription?.cancel();
+    _deleteSubscription?.cancel();
     
     _controller.dispose();
     _scrollController.dispose();
@@ -444,6 +445,150 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     return '$displayHour:$minute $period';
   }
 
+  // ============================================
+  // WhatsApp-style Delete Message Feature
+  // ============================================
+
+  /// Show WhatsApp-style delete options dialog on long-press
+  void _showDeleteOptions(Message message, bool isUserMessage) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              
+              // Delete for Me option (available for all messages)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.grey),
+                title: const Text('Delete for Me'),
+                subtitle: const Text('This message will be removed from your device only'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deleteForMe(message);
+                },
+              ),
+              
+              // Delete for Everyone option (only for sender's own messages)
+              if (isUserMessage) ...[
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.delete_forever, color: Colors.red),
+                  title: const Text('Delete for Everyone', style: TextStyle(color: Colors.red)),
+                  subtitle: const Text('This message will be deleted for everyone'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirmDeleteForEveryone(message);
+                  },
+                ),
+              ],
+              
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.close, color: Colors.grey),
+                title: const Text('Cancel'),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Delete message for current user only (local delete)
+  /// Message is hidden from UI but not deleted from backend
+  void _deleteForMe(Message message) async {
+    // Save to local storage
+    await _storage.addDeletedForMe(message.messageId);
+    
+    // Update UI immediately
+    setState(() {
+      _deletedForMe.add(message.messageId);
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Message deleted for you'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  /// Show confirmation dialog before deleting for everyone
+  void _confirmDeleteForEveryone(Message message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete for Everyone?'),
+        content: const Text(
+          'This message will be permanently deleted for everyone in this chat. '
+          'Others will see "This message was deleted".',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteForEveryone(message);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Delete message for everyone (backend delete + broadcast)
+  /// Backend permanently deletes from DB, both users see "This message was deleted"
+  void _deleteForEveryone(Message message) async {
+    if (_chatId == null) return;
+
+    // Emit socket event to delete from backend
+    _socketService.deleteMessageForEveryone(
+      messageId: message.messageId,
+      chatId: _chatId!,
+      receiverId: _otherUserId ?? '',
+    );
+
+    // Optimistically update UI (will also be updated when we receive the delete event)
+    await _storage.addDeletedForEveryone(message.messageId);
+    setState(() {
+      _deletedForEveryone.add(message.messageId);
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Message deleted for everyone'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -517,64 +662,92 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
                   final message = _messages[index];
                   final isUser = message.senderId == _currentUserId;
+                  
+                  // WhatsApp-style: Skip messages deleted for me (completely hidden)
+                  if (_deletedForMe.contains(message.messageId)) {
+                    return const SizedBox.shrink();
+                  }
+                  
+                  // WhatsApp-style: Show placeholder for messages deleted for everyone
+                  final isDeletedForEveryone = _deletedForEveryone.contains(message.messageId);
 
-                  return Align(
-                    alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.75,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: isUser
-                            ? CrossAxisAlignment.end
-                            : CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: isUser
-                                  ? Colors.pinkAccent
-                                  : Colors.white,
-                              borderRadius: BorderRadius.only(
-                                topLeft: const Radius.circular(20),
-                                topRight: const Radius.circular(20),
-                                bottomLeft: isUser
-                                    ? const Radius.circular(20)
-                                    : const Radius.circular(4),
-                                bottomRight: isUser
-                                    ? const Radius.circular(4)
-                                    : const Radius.circular(20),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
+                  return GestureDetector(
+                    onLongPress: isDeletedForEveryone ? null : () => _showDeleteOptions(message, isUser),
+                    child: Align(
+                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * 0.75,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: isUser
+                              ? CrossAxisAlignment.end
+                              : CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: isDeletedForEveryone
+                                    ? Colors.grey.shade200  // Grey for deleted messages
+                                    : (isUser ? Colors.pinkAccent : Colors.white),
+                                borderRadius: BorderRadius.only(
+                                  topLeft: const Radius.circular(20),
+                                  topRight: const Radius.circular(20),
+                                  bottomLeft: isUser
+                                      ? const Radius.circular(20)
+                                      : const Radius.circular(4),
+                                  bottomRight: isUser
+                                      ? const Radius.circular(4)
+                                      : const Radius.circular(20),
                                 ),
-                              ],
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: isDeletedForEveryone
+                                  // WhatsApp-style deleted message placeholder (local only)
+                                  ? Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.block, size: 14, color: Colors.grey.shade600),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'This message was deleted',
+                                          style: TextStyle(
+                                            color: Colors.grey.shade600,
+                                            fontSize: 14,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Text(
+                                      message.messageContent,
+                                      style: TextStyle(
+                                        color: isUser ? Colors.white : Colors.black87,
+                                        fontSize: 15,
+                                        height: 1.4,
+                                      ),
+                                    ),
                             ),
-                            child: Text(
-                              message.messageContent,
-                              style: TextStyle(
-                                color: isUser ? Colors.white : Colors.black87,
-                                fontSize: 15,
-                                height: 1.4,
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
+                              child: Text(
+                                _formatTime(message.createdAt),
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 11,
+                                ),
                               ),
                             ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
-                            child: Text(
-                              _formatTime(message.createdAt),
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   );
