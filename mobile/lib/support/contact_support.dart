@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/contact_service.dart';
 
 class ContactSupportPage extends StatefulWidget {
   const ContactSupportPage({super.key});
@@ -12,6 +13,7 @@ class _ContactSupportPageState extends State<ContactSupportPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
+  final ContactService _contactService = ContactService();
   bool _submitted = false;
 
   @override
@@ -22,24 +24,37 @@ class _ContactSupportPageState extends State<ContactSupportPage> {
     super.dispose();
   }
 
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _submitted = true;
-      });
-      // Here you would send the data to your backend or support system
-      // For now, just show a confirmation
-      Future.delayed(const Duration(seconds: 2), () {
-        setState(() {
-          _submitted = false;
-          _nameController.clear();
-          _emailController.clear();
-          _messageController.clear();
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Your message has been sent!')),
-        );
-      });
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _submitted = true;
+    });
+
+    final result = await _contactService.submitContact(
+      name: _nameController.text.trim(),
+      email: _emailController.text.trim(),
+      message: _messageController.text.trim(),
+      source: 'support',
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _submitted = false;
+    });
+
+    if (result.success) {
+      _nameController.clear();
+      _emailController.clear();
+      _messageController.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your message has been sent!')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.error ?? 'Failed to send message')),
+      );
     }
   }
 

@@ -154,6 +154,22 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX idx_messages_chat ON messages(chat_id, created_at DESC);
 
 -- ============================================
+-- CONTACT MESSAGES TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS contact_messages (
+    contact_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    source VARCHAR(20) NOT NULL CHECK (source IN ('contact', 'support')),
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    user_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_contact_messages_created_at ON contact_messages(created_at DESC);
+CREATE INDEX idx_contact_messages_source ON contact_messages(source);
+
+-- ============================================
 -- RATINGS & REVIEWS TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS ratings (

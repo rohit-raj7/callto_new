@@ -78,6 +78,7 @@ export const deleteListener = (listener_id) => api.delete(`/listeners/${listener
 
 // Admin methods
 export const getAdminListeners = () => api.get('/admin/listeners');
+export const getContactMessages = (params = {}) => api.get('/admin/contact-messages', { params });
 export const getOutbox = (params = {}) => api.get('/notifications/outbox', { params });
 export const updateOutbox = (id, payload) => api.put(`/notifications/outbox/${id}`, payload);
 export const deleteOutbox = (id) => api.delete(`/notifications/outbox/${id}`);

@@ -24,6 +24,7 @@ import listenerRoutes from './routes/listeners.js';
 import callRoutes from './routes/calls.js';
 import createChatsRouter from './routes/chats.js';
 import adminRoutes from './routes/admin.js';
+import contactRoutes from './routes/contacts.js';
 import notificationsRoutes from './routes/notifications.js';
 import User from './models/User.js';
 import { Chat, Message } from './models/Chat.js';
@@ -100,6 +101,7 @@ app.use('/api/listeners', listenerRoutes);
 app.use('/api/calls', callRoutes);
 app.use('/api/chats', createChatsRouter(io)); // Pass io for real-time message delivery
 app.use('/api/admin', adminRoutes);
+app.use('/api/contacts', contactRoutes);
 app.use('/api/notifications', notificationsRoutes);
 
 // ============================================

@@ -153,6 +153,21 @@ async function ensureSchema() {
     `;
     await pool.query(alterNotificationsSql);
 
+    const createContactMessagesSql = `
+      CREATE TABLE IF NOT EXISTS contact_messages (
+        contact_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        source VARCHAR(20) NOT NULL CHECK (source IN ('contact', 'support')),
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        user_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_contact_messages_created_at ON contact_messages(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_contact_messages_source ON contact_messages(source);
+    `;
+    await pool.query(createContactMessagesSql);
+
     // Add commonly used social auth columns if they don't exist yet
     const alterSql = `
       ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(20) DEFAULT 'phone';

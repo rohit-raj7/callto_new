@@ -5,6 +5,8 @@ import { OAuth2Client } from 'google-auth-library';
 import Admin from '../models/Admin.js';
 import Listener from '../models/Listener.js';
 import config from '../config/config.js';
+import { pool } from '../db.js';
+import { authenticateAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 const googleClient = new OAuth2Client(process.env.admin_google_client_id);
@@ -104,6 +106,63 @@ router.get('/listeners', async (req, res) => {
   } catch (error) {
     console.error('Get admin listeners error:', error);
     res.status(500).json({ error: 'Failed to fetch listeners' });
+  }
+});
+
+// GET /api/admin/contact-messages
+// Fetch contact/support messages for admin panel
+router.get('/contact-messages', authenticateAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 50, source, search } = req.query;
+    const perPage = Math.min(Math.max(Number(limit) || 50, 1), 200);
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const offset = (currentPage - 1) * perPage;
+
+    const conds = [];
+    const params = [];
+    let idx = 1;
+
+    if (source && (source === 'contact' || source === 'support')) {
+      conds.push(`source = $${idx++}`);
+      params.push(source);
+    }
+
+    if (search) {
+      conds.push(`(name ILIKE $${idx} OR email ILIKE $${idx} OR message ILIKE $${idx})`);
+      params.push(`%${String(search).trim()}%`);
+      idx += 1;
+    }
+
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const listQuery = `
+      SELECT contact_id, source, name, email, message, user_id, created_at
+      FROM contact_messages
+      ${where}
+      ORDER BY created_at DESC
+      LIMIT $${idx} OFFSET $${idx + 1}
+    `;
+    const listParams = [...params, perPage, offset];
+
+    const countQuery = `
+      SELECT COUNT(*)::int AS count
+      FROM contact_messages
+      ${where}
+    `;
+
+    const [listResult, countResult] = await Promise.all([
+      pool.query(listQuery, listParams),
+      pool.query(countQuery, params)
+    ]);
+
+    res.json({
+      messages: listResult.rows,
+      count: countResult.rows[0]?.count || 0,
+      page: currentPage,
+      limit: perPage
+    });
+  } catch (error) {
+    console.error('Get contact messages error:', error);
+    res.status(500).json({ error: 'Failed to fetch contact messages' });
   }
 });
 

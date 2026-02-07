@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../services/contact_service.dart';
 
 class ContactUsPage extends StatefulWidget {
   const ContactUsPage({super.key});
@@ -12,6 +13,56 @@ class _ContactUsPageState extends State<ContactUsPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
+  final ContactService _contactService = ContactService();
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final result = await _contactService.submitContact(
+      name: _nameController.text.trim(),
+      email: _emailController.text.trim(),
+      message: _messageController.text.trim(),
+      source: 'contact',
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isSubmitting = false;
+    });
+
+    if (result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Message sent successfully!'),
+          backgroundColor: Colors.pinkAccent,
+        ),
+      );
+      _nameController.clear();
+      _emailController.clear();
+      _messageController.clear();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Failed to send message'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -187,21 +238,18 @@ class _ContactUsPageState extends State<ContactUsPage> {
                             ),
                             textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
-                          onPressed: () {
-                            if (_formKey.currentState!.validate()) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Message Sent Successfully!"),
-                                  backgroundColor: Colors.pinkAccent,
-                                ),
-                              );
-                              _nameController.clear();
-                              _emailController.clear();
-                              _messageController.clear();
-                            }
-                          },
-                          icon: const Icon(Icons.send_rounded, size: 22),
-                          label: const Text("Send Message"),
+                          onPressed: _isSubmitting ? null : _submitForm,
+                          icon: _isSubmitting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.send_rounded, size: 22),
+                          label: Text(_isSubmitting ? 'Sending...' : 'Send Message'),
                         ),
                       ),
                     ],
