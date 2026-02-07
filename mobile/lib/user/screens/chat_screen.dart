@@ -7,6 +7,14 @@ import '../../services/socket_service.dart';
 import '../../models/chat_model.dart';
 import '../../models/listener_model.dart' as models;
 
+/// Resolve avatar string to the correct ImageProvider.
+/// Asset paths (e.g. 'assets/...') → AssetImage, URLs → NetworkImage.
+ImageProvider? _resolveAvatar(String? avatar) {
+  if (avatar == null || avatar.isEmpty) return null;
+  if (avatar.startsWith('http')) return NetworkImage(avatar);
+  return AssetImage(avatar);
+}
+
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
@@ -351,12 +359,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 CircleAvatar(
                   radius: 28,
                   backgroundColor: const Color(0xFFFFF1F5),
-                  backgroundImage: (chat.otherUserAvatar != null &&
-                          chat.otherUserAvatar!.isNotEmpty)
-                      ? NetworkImage(chat.otherUserAvatar!)
-                      : null,
+                  backgroundImage: _resolveAvatar(chat.otherUserAvatar),
                   onBackgroundImageError: (chat.otherUserAvatar != null &&
-                          chat.otherUserAvatar!.isNotEmpty)
+                          chat.otherUserAvatar!.isNotEmpty &&
+                          chat.otherUserAvatar!.startsWith('http'))
                       ? (_, __) {} // silently ignore network errors
                       : null,
                   child: (chat.otherUserAvatar == null ||
@@ -675,11 +681,11 @@ class _ListenerPickerSheetState extends State<_ListenerPickerSheet> {
                                 children: [
                                   CircleAvatar(
                                     radius: 24,
-                                    backgroundImage: l.avatarUrl != null
-                                        ? NetworkImage(l.avatarUrl!)
-                                        : const AssetImage(
-                                                'assets/images/khushi.jpg')
-                                            as ImageProvider,
+                                    backgroundColor: const Color(0xFFFFF1F5),
+                                    backgroundImage: _resolveAvatar(l.avatarUrl),
+                                    child: (l.avatarUrl == null || l.avatarUrl!.isEmpty)
+                                        ? const Icon(Icons.person, size: 26, color: Colors.pinkAccent)
+                                        : null,
                                   ),
                                   Positioned(
                                     right: 0,
