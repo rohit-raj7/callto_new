@@ -4,6 +4,7 @@ import '../actions/charting.dart';
 import '../../services/chat_service.dart';
 import '../../services/socket_service.dart';
 import '../../models/chat_model.dart';
+import '../../ui/skeleton_loading_ui/chat_item_skeleton.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -208,8 +209,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildContent() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.pinkAccent),
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        itemCount: 8,
+        itemBuilder: (context, index) {
+          final left = index % 2 == 0;
+          return ChatItemSkeleton(isLeft: left);
+        },
       );
     }
 

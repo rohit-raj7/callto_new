@@ -6,6 +6,7 @@ import '../../services/listener_service.dart';
 import '../../services/socket_service.dart';
 import '../../models/chat_model.dart';
 import '../../models/listener_model.dart' as models;
+import '../../ui/skeleton_loading_ui/chat_item_skeleton.dart';
 
 /// Resolve avatar string to the correct ImageProvider.
 /// Asset paths (e.g. 'assets/...') → AssetImage, URLs → NetworkImage.
@@ -273,8 +274,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildContent() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.pinkAccent),
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        itemCount: 8,
+        itemBuilder: (context, index) {
+          final left = index % 2 == 0;
+          return ChatItemSkeleton(isLeft: left);
+        },
       );
     }
 

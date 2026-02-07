@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/call_service.dart';
 import '../../models/call_model.dart';
+import '../../ui/skeleton_loading_ui/recent_chat_skeleton.dart';
 
 class RecentsScreen extends StatefulWidget {
   const RecentsScreen({super.key});
@@ -139,7 +140,10 @@ class _RecentsScreenState extends State<RecentsScreen> {
             _buildCustomHeader(context),
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? ListView.builder(
+                      itemCount: 10,
+                      itemBuilder: (context, index) => const RecentChatSkeleton(),
+                    )
                   : _error != null
                       ? Center(
                           child: Column(

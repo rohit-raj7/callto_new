@@ -27,20 +27,8 @@ class WalletScreen extends StatefulWidget {
 }
 
 class _WalletScreenState extends State<WalletScreen> {
-  int? _selectedIndex = 3;
-
-  final List<Map<String, dynamic>> packs = [
-    {'amount': 25, 'extra': 0, 'badge': null},
-    {'amount': 50, 'extra': 6, 'badge': null},
-    {'amount': 100, 'extra': 15, 'badge': null},
-    {'amount': 140, 'extra': 20, 'badge': 'Value Pack'},
-    {'amount': 200, 'extra': 25, 'badge': null},
-    {'amount': 300, 'extra': 35, 'badge': 'Popular'},
-    {'amount': 500, 'extra': 35, 'badge': null},
-    {'amount': 900, 'extra': 35, 'badge': null},
-    {'amount': 1900, 'extra': 35, 'badge': null},
-    {'amount': 9800, 'extra': 35, 'badge': null},
-  ];
+  bool _bankLinked = false;
+  bool _withdrawing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +48,6 @@ class _WalletScreenState extends State<WalletScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // --- AppBar replacement for gradient ---
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -72,15 +59,14 @@ class _WalletScreenState extends State<WalletScreen> {
                       onPressed: () => Navigator.pop(context),
                     ),
                     const Text(
-                      'Wallet',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      'Earnings',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     TextButton.icon(
                       onPressed: () {},
-                      icon: const Icon(Icons.swap_vert, color: Colors.pink),
+                      icon: const Icon(Icons.account_balance_wallet, color: Colors.pink),
                       label: const Text(
-                        'Transactions',
+                        'Payouts',
                         style: TextStyle(color: Colors.pink),
                       ),
                     ),
@@ -88,7 +74,6 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
               ),
 
-              // --- Balance card ---
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -106,137 +91,248 @@ class _WalletScreenState extends State<WalletScreen> {
                       ),
                     ],
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Text(
-                        'My Balance',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w500),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Available for Payout',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                       ),
-                      Text(
+                      const SizedBox(height: 6),
+                      const Text(
                         '₹0.00',
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: Colors.pink,
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.pink.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: const [
+                                  Text('Lifetime', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                                  SizedBox(height: 4),
+                                  Text('₹0.00', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.pink)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: const [
+                                  Text('Pending', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                                  SizedBox(height: 4),
+                                  Text('₹0.00', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.orange)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
               ),
 
-              // --- Section Title ---
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Add Balance to Wallet',
-                    style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w600),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      Text(
+                        'Payment Method',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        'Manage',
+                        style: TextStyle(color: Colors.pink),
+                      ),
+                    ],
                   ),
                 ),
               ),
 
-              // --- Grid of packs ---
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                  child: GridView.builder(
-                    itemCount: packs.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 2.5,
-                    ),
-                    itemBuilder: (context, index) {
-                      final pack = packs[index];
-                      final selected = _selectedIndex == index;
-
-                      return GestureDetector(
-                        onTap: () => setState(() => _selectedIndex = index),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? Colors.pink.shade50
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: selected
-                                ? Border.all(color: Colors.pink, width: 2)
-                                : null,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.shade300,
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: ListView(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.shade300,
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.pink.shade50,
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                              child: const Icon(Icons.account_balance, color: Colors.pink),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '₹${pack['amount']}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.pink,
-                                    ),
+                                    _bankLinked ? 'Bank • Linked' : 'No bank account linked',
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                                   ),
-                                  if ((pack['extra'] as int) > 0)
-                                    Text(
-                                      '+${pack['extra']}% extra',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.green,
-                                      ),
-                                    ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _bankLinked ? '****1234 • Savings' : 'Add your bank to receive payouts',
+                                    style: const TextStyle(fontSize: 13, color: Colors.black54),
+                                  ),
                                 ],
                               ),
-                              if (pack['badge'] != null)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.redAccent,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    pack['badge'],
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _bankLinked = !_bankLinked;
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(_bankLinked ? 'Bank linked (demo)' : 'Bank removed (demo)')),
+                                );
+                              },
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Colors.pink.shade200),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: Text(_bankLinked ? 'Change' : 'Add Bank', style: const TextStyle(color: Colors.pink)),
+                            ),
+                          ],
                         ),
-                      );
-                    },
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.shade300,
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: Colors.pink.shade50,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.payments, color: Colors.pink),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: const [
+                                    Text('Get Payment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                                    SizedBox(height: 4),
+                                    Text('Withdraw earnings to bank', style: TextStyle(fontSize: 13, color: Colors.black54)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            ElevatedButton(
+                              onPressed: !_bankLinked || _withdrawing
+                                  ? null
+                                  : () async {
+                                      setState(() => _withdrawing = true);
+                                      await Future.delayed(const Duration(milliseconds: 800));
+                                      setState(() => _withdrawing = false);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Withdrawal requested (demo)')),
+                                      );
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.pink,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                              ),
+                              child: Text(_withdrawing ? 'Processing...' : 'Withdraw', style: const TextStyle(color: Colors.white)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text('Recent Transactions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.shade300,
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            _txnTile('Chat earning', '₹0.00', Icons.chat_bubble_outline),
+                            _divider(),
+                            _txnTile('Call earning', '₹0.00', Icons.call),
+                            _divider(),
+                            _txnTile('Payout', '₹0.00', Icons.payments_outlined),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 70),
+                    ],
                   ),
                 ),
               ),
 
-              const SizedBox(height: 70),
             ],
           ),
         ),
       ),
 
-      // --- Bottom CTA bar ---
       bottomNavigationBar: Container(
         color: Colors.white,
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
@@ -247,13 +343,13 @@ class _WalletScreenState extends State<WalletScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: Colors.pink.shade50,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Center(
                 child: Text(
-                  'Get ₹28 Extra cashback on this pack',
-                  style: TextStyle(color: Colors.green),
+                  'Link a bank to start receiving payouts',
+                  style: TextStyle(color: Colors.pink),
                 ),
               ),
             ),
@@ -269,17 +365,15 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 onPressed: () {
-                  final selected =
-                      _selectedIndex != null ? packs[_selectedIndex!] : null;
-                  final amount =
-                      selected != null ? selected['amount'] : 'none';
+                  setState(() {
+                    _bankLinked = true;
+                  });
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text('Adding ₹$amount to wallet (demo)')),
+                    const SnackBar(content: Text('Bank linked (demo)')),
                   );
                 },
                 child: const Text(
-                  'Add Balance',
+                  'Add Bank',
                   style: TextStyle(fontSize: 16, color: Colors.white),
                 ),
               ),
@@ -287,6 +381,41 @@ class _WalletScreenState extends State<WalletScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _txnTile(String title, String amount, IconData icon) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.pink.shade50,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: Colors.pink),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              const Text('Today', style: TextStyle(fontSize: 12, color: Colors.black54)),
+            ],
+          ),
+        ),
+        Text(amount, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+      ],
+    );
+  }
+
+  Widget _divider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Divider(color: Colors.grey.shade200, height: 1),
     );
   }
 }

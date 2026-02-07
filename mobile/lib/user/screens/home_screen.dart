@@ -4,6 +4,7 @@ import '../widgets/top_bar.dart';
 import '../../services/listener_service.dart';
 import '../../services/socket_service.dart';
 import '../../models/listener_model.dart' as listener_model;
+import '../../ui/skeleton_loading_ui/listener_card_skeleton.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -239,10 +240,9 @@ class _HomeScreenState extends State<HomeScreen> {
             // Expert List
             Expanded(
               child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Colors.pinkAccent,
-                      ),
+                  ? ListView.builder(
+                      itemCount: 8,
+                      itemBuilder: (context, index) => const ListenerCardSkeleton(),
                     )
                   : _error != null
                       ? Center(

@@ -239,13 +239,13 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
     
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF0B1220),
       appBar: AppBar(
         leading: IconButton(
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withOpacity(0.12),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
@@ -254,7 +254,7 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
         ),
         title: const Text(
           "Random Match",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 0.4),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -265,7 +265,7 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
         height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF312E81)],
+            colors: [Color(0xFF0B1220), Color(0xFF111827), Color(0xFF312E81)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -376,9 +376,9 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
                 "Find Your Match",
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: size.width * 0.065,
+                  fontSize: size.width * 0.062,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
+                  letterSpacing: 0.4,
                 ),
               ),
               SizedBox(height: size.height * 0.015),
@@ -388,10 +388,37 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
                   "Connect instantly with a verified listener for a random voice conversation.",
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: size.width * 0.038,
-                    height: 1.5,
+                    color: Colors.white.withOpacity(0.72),
+                    fontSize: size.width * 0.037,
+                    height: 1.6,
                   ),
+                ),
+              ),
+              SizedBox(height: size.height * 0.02),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: size.width * 0.04,
+                  vertical: size.height * 0.008,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withOpacity(0.08)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.verified_rounded, color: Colors.white.withOpacity(0.8), size: size.width * 0.04),
+                    SizedBox(width: size.width * 0.02),
+                    Text(
+                      "Verified listeners only",
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: size.width * 0.032,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               SizedBox(height: size.height * 0.05),
@@ -423,14 +450,14 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.mic, color: Colors.white, size: size.width * 0.055),
+                        Icon(Icons.mic, color: Colors.white, size: size.width * 0.052),
                         SizedBox(width: size.width * 0.02),
                         Text(
                           "Start Matching",
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: size.width * 0.04,
-                            fontWeight: FontWeight.w600,
+                            fontSize: size.width * 0.039,
+                            fontWeight: FontWeight.w700,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -468,7 +495,7 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withOpacity(0.07),
                   width: 1,
                 ),
               ),
@@ -562,9 +589,9 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: size.width * 0.045,
+                    fontSize: size.width * 0.043,
                     fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
+                    letterSpacing: 0.4,
                   ),
                 ),
                 SizedBox(height: size.height * 0.01),
@@ -572,8 +599,8 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
                   "Scanning online profiles",
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
-                    fontSize: size.width * 0.035,
+                    color: Colors.white.withOpacity(0.55),
+                    fontSize: size.width * 0.034,
                   ),
                 ),
               ],
@@ -601,9 +628,13 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
           width: double.infinity,
           padding: EdgeInsets.all(size.width * 0.05),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF111827), Color(0xFF1F2937)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            border: Border.all(color: Colors.white.withOpacity(0.08)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.5),
@@ -622,21 +653,21 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
                   vertical: size.height * 0.01,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.2),
+                  color: Colors.green.withOpacity(0.18),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.green.withOpacity(0.5)),
+                  border: Border.all(color: Colors.green.withOpacity(0.45)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: size.width * 0.04),
+                    Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: size.width * 0.038),
                     SizedBox(width: size.width * 0.02),
                     Text(
                       "Match Found!",
                       style: TextStyle(
                         color: Colors.greenAccent,
                         fontWeight: FontWeight.bold,
-                        fontSize: size.width * 0.035,
+                        fontSize: size.width * 0.034,
                       ),
                     ),
                   ],
@@ -674,7 +705,7 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: size.width * 0.06,
+                  fontSize: size.width * 0.058,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -702,9 +733,9 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
                   vertical: size.height * 0.01,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  border: Border.all(color: Colors.white.withOpacity(0.08)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -715,7 +746,7 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
                       user['topic']!,
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: size.width * 0.035,
+                        fontSize: size.width * 0.034,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -731,19 +762,19 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
                 child: ElevatedButton(
                   onPressed: () => startCall(user),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF22C55E),
+                    backgroundColor: const Color(0xFFEC4899),
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: size.height * 0.015),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(18),
                     ),
                     elevation: 4,
-                    shadowColor: Colors.green.withOpacity(0.4),
+                    shadowColor: const Color(0xFFEC4899).withOpacity(0.4),
                   ),
                   child: Text(
                     "Start Call Now",
                     style: TextStyle(
-                      fontSize: size.width * 0.042,
+                      fontSize: size.width * 0.041,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -754,11 +785,11 @@ class _RandomCallScreenState extends State<RandomCallScreen> with TickerProvider
                 onPressed: findRandomPerson,
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: size.height * 0.01),
-                  foregroundColor: Colors.white70,
+                  foregroundColor: Colors.white.withOpacity(0.7),
                 ),
                 child: Text(
                   "Find Another Match",
-                  style: TextStyle(fontSize: size.width * 0.038),
+                  style: TextStyle(fontSize: size.width * 0.037),
                 ),
               ),
             ],
