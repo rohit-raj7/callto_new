@@ -10,6 +10,7 @@ import 'services/socket_service.dart';
 import 'services/chat_state_manager.dart';
 import 'services/incoming_call_overlay_service.dart';
 import 'services/call_service.dart';
+import 'services/in_app_chat_notification_service.dart';
 import 'listener/actions/calling.dart';
 
 /// Global navigator key for showing incoming call overlay anywhere in the app
@@ -32,6 +33,8 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
   final ChatStateManager _chatStateManager = ChatStateManager();
   final StorageService _storageService = StorageService();
   final IncomingCallOverlayService _overlayService = IncomingCallOverlayService();
+  final InAppChatNotificationService _chatNotificationService =
+      InAppChatNotificationService();
   
   // Global incoming call handling for listeners
   StreamSubscription<IncomingCall>? _incomingCallSubscription;
@@ -46,6 +49,7 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
     // Initialize global incoming call listener after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeGlobalCallHandler();
+      _chatNotificationService.initialize(navigatorKey);
     });
   }
 
@@ -181,6 +185,7 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _incomingCallSubscription?.cancel();
     _callHandledSubscription?.cancel();
+    _chatNotificationService.dispose();
     super.dispose();
   }
 
