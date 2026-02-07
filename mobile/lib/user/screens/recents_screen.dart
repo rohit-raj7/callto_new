@@ -289,6 +289,7 @@ class _RecentsScreenState extends State<RecentsScreen> {
     final avatar = call.listenerAvatar ?? 'https://randomuser.me/api/portraits/lego/1.jpg';
     final status = call.status;
     final isCompleted = status == 'completed';
+    final isOnline = call.listenerOnline ?? false;
 
     const cardGradient = LinearGradient(
       colors: [Color(0xFFFEE9F2), Color(0xFFFBEFFF)],
@@ -322,6 +323,19 @@ class _RecentsScreenState extends State<RecentsScreen> {
                       ? NetworkImage(avatar)
                       : AssetImage(avatar) as ImageProvider,
                   backgroundColor: Colors.grey.shade200,
+                ),
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: isOnline ? Colors.green : Colors.grey,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
                 ),
                 Positioned(
                   bottom: 0,
