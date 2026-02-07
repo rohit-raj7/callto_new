@@ -41,8 +41,8 @@ class Chat {
                ELSE u1.display_name
              END as other_user_name,
              CASE 
-               WHEN c.user1_id = $1 THEN u2.avatar_url
-               ELSE u1.avatar_url
+               WHEN c.user1_id = $1 THEN COALESCE(l2.profile_image, u2.avatar_url)
+               ELSE COALESCE(l1.profile_image, u1.avatar_url)
              END as other_user_avatar,
              CASE 
                WHEN c.user1_id = $1 THEN c.user2_id
@@ -55,6 +55,8 @@ class Chat {
       FROM chats c
       JOIN users u1 ON c.user1_id = u1.user_id
       JOIN users u2 ON c.user2_id = u2.user_id
+      LEFT JOIN listeners l1 ON c.user1_id = l1.user_id
+      LEFT JOIN listeners l2 ON c.user2_id = l2.user_id
       WHERE (c.user1_id = $1 OR c.user2_id = $1)
         AND c.is_active = TRUE
       ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
