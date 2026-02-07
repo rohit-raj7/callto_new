@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getListenerById } from '../services/api';
+import { getListenerById, updateListenerVerificationStatus } from '../services/api';
 import {
   ArrowLeft, Copy, Check, Mail, Phone, MapPin, Calendar,
   Star, TrendingUp, Clock, DollarSign, Headphones, Award,
   Shield, Building2, CreditCard, User, Briefcase, GraduationCap,
-  Languages, Heart, Activity, Eye, EyeOff, MessageSquare, IndianRupee
+  Languages, Heart, Activity, Eye, EyeOff, MessageSquare, IndianRupee, 
+  CheckCircle, XCircle, AlertCircle
 } from 'lucide-react';
 
 const ListenerDetails = () => {
@@ -16,6 +17,8 @@ const ListenerDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copiedField, setCopiedField] = useState(null);
+  const [updatingVerification, setUpdatingVerification] = useState(false);
+  const [verificationSuccess, setVerificationSuccess] = useState(false);
 
   // Platform commission constants (30% platform, 70% listener)
   const PLATFORM_COMMISSION_PERCENT = 30;
@@ -45,6 +48,37 @@ const ListenerDetails = () => {
       setTimeout(() => setCopiedField(null), 2000); // Reset after 2 seconds
     } catch (error) {
       console.error('Failed to copy to clipboard:', error);
+    }
+  };
+
+  const handleVerificationStatusChange = async (newStatus) => {
+    if (!['approved', 'rejected', 'pending'].includes(newStatus)) {
+      console.error('Invalid verification status:', newStatus);
+      return;
+    }
+
+    setUpdatingVerification(true);
+    setVerificationSuccess(false);
+
+    try {
+      await updateListenerVerificationStatus(listener_id, newStatus);
+      
+      // Update local state
+      setListener(prev => ({
+        ...prev,
+        verification_status: newStatus,
+        is_verified: newStatus === 'approved'
+      }));
+
+      // Show success message
+      setVerificationSuccess(true);
+      setTimeout(() => setVerificationSuccess(false), 3000);
+    } catch (error) {
+      console.error('Failed to update verification status:', error);
+      setError('Failed to update verification status. Please try again.');
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setUpdatingVerification(false);
     }
   };
 
@@ -149,7 +183,7 @@ const ListenerDetails = () => {
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Listener Not Found</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-6">The listener you're looking for doesn't exist or has been removed.</p>
           <button
-            onClick={() => navigate('/admin/listeners')}
+            onClick={() => navigate('/admin-no-all-call/listeners')}
             className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
           >
             Back to Listeners
@@ -172,7 +206,7 @@ const ListenerDetails = () => {
         {/* Header with Back Button */}
         <div className="mb-6">
           <button
-            onClick={() => navigate('/admin/listeners')}
+            onClick={() => navigate('/admin-no-all-call/listeners')}
             className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors mb-4 group"
           >
             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
@@ -477,16 +511,6 @@ const ListenerDetails = () => {
                     {listener.is_available ? 'Available' : 'Unavailable'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Verification</span>
-                  <span className={`text-sm font-medium ${
-                    listener.is_verified 
-                      ? 'text-blue-600 dark:text-blue-400' 
-                      : 'text-gray-600 dark:text-gray-400'
-                  }`}>
-                    {listener.is_verified ? 'Verified' : 'Pending'}
-                  </span>
-                </div>
                 {stats?.unique_callers > 0 && (
                   <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
                     <span className="text-sm text-gray-600 dark:text-gray-400">Unique Callers</span>
@@ -496,6 +520,121 @@ const ListenerDetails = () => {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Verification Status Control */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-5 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-indigo-600" />
+                Verification Control
+              </h3>
+              
+              {/* Current Status Display */}
+              <div className="mb-5 p-4 rounded-xl border-2" style={{
+                borderColor: 
+                  (listener.verification_status || 'pending') === 'approved' ? '#10b981' :
+                  (listener.verification_status || 'pending') === 'rejected' ? '#ef4444' : '#f59e0b',
+                backgroundColor: 
+                  (listener.verification_status || 'pending') === 'approved' ? '#ecfdf5' :
+                  (listener.verification_status || 'pending') === 'rejected' ? '#fef2f2' : '#fffbeb'
+              }}>
+                <div className="flex items-center gap-3">
+                  {(listener.verification_status || 'pending') === 'approved' ? (
+                    <div className="p-2 bg-green-500 rounded-lg">
+                      <CheckCircle className="w-5 h-5 text-white" />
+                    </div>
+                  ) : (listener.verification_status || 'pending') === 'rejected' ? (
+                    <div className="p-2 bg-red-500 rounded-lg">
+                      <XCircle className="w-5 h-5 text-white" />
+                    </div>
+                  ) : (
+                    <div className="p-2 bg-yellow-500 rounded-lg">
+                      <AlertCircle className="w-5 h-5 text-white" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                      Status: {(listener.verification_status || 'pending').toUpperCase()}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                      {(listener.verification_status || 'pending') === 'approved' 
+                        ? 'Listener is visible to users and can receive calls/chats'
+                        : (listener.verification_status || 'pending') === 'rejected'
+                        ? 'Listener is hidden and cannot receive calls/chats'
+                        : 'Awaiting verification - hidden from users'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Success Message */}
+              {verificationSuccess && (
+                <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg animate-pulse">
+                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400 text-sm font-medium">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Verification status updated successfully!</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Segmented Control Toggle */}
+              <div className="mb-4">
+                <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 block">
+                  Change Verification Status
+                </label>
+                <div className="bg-gray-100 dark:bg-gray-700 p-1.5 rounded-xl flex gap-1.5">
+                  {/* Approved Option */}
+                  <button
+                    onClick={() => handleVerificationStatusChange('approved')}
+                    disabled={updatingVerification}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200 ${
+                      (listener.verification_status || 'pending') === 'approved'
+                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/30 scale-[1.02]'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-600'
+                    } ${updatingVerification ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Approved</span>
+                  </button>
+
+                  {/* Pending Option */}
+                  <button
+                    onClick={() => handleVerificationStatusChange('pending')}
+                    disabled={updatingVerification}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200 ${
+                      (listener.verification_status || 'pending') === 'pending'
+                        ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-500/30 scale-[1.02]'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-600'
+                    } ${updatingVerification ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <AlertCircle className="w-4 h-4" />
+                    <span>Pending</span>
+                  </button>
+
+                  {/* Rejected Option */}
+                  <button
+                    onClick={() => handleVerificationStatusChange('rejected')}
+                    disabled={updatingVerification}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200 ${
+                      (listener.verification_status || 'pending') === 'rejected'
+                        ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 scale-[1.02]'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-600'
+                    } ${updatingVerification ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>Rejected</span>
+                  </button>
+                </div>
+                
+                {/* Loading Indicator */}
+                {updatingVerification && (
+                  <div className="mt-3 flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Updating status...</span>
+                  </div>
+                )}
+              </div>
+ 
             </div>
 
             {/* Payment Information */}

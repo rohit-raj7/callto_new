@@ -7,7 +7,8 @@ import {
   Search, Filter, Download, Eye, Edit3, Trash2, 
   ChevronUp, ChevronDown, Users, UserCheck, UserX,
   Star, RefreshCw, MoreVertical, X, Headphones,
-  Phone, Mail, MapPin, Clock, TrendingUp, Copy, Check
+  Phone, Mail, MapPin, Clock, TrendingUp, Copy, Check,
+  Shield, CheckCircle, AlertCircle, XCircle
 } from 'lucide-react';
 
 /* -------------------- HELPERS -------------------- */
@@ -99,6 +100,9 @@ const ListenersManagement = () => {
   const stats = useMemo(() => ({
     total: listeners.length,
     online: listeners.filter(l => l.is_online).length,
+    approved: listeners.filter(l => (l.verification_status || 'pending') === 'approved').length,
+    pending: listeners.filter(l => (l.verification_status || 'pending') === 'pending').length,
+    rejected: listeners.filter(l => (l.verification_status || 'pending') === 'rejected').length,
     verified: listeners.filter(l => l.is_verified).length,
     avgRating: listeners.length > 0 
       ? (listeners.reduce((sum, l) => sum + (Number(l.average_rating) || 0), 0) / listeners.length).toFixed(1)
@@ -158,7 +162,11 @@ const ListenersManagement = () => {
     }
 
     if (filterVerified !== '') {
-      data = data.filter(l => l.is_verified === (filterVerified === 'true'));
+      if (['approved', 'pending', 'rejected'].includes(filterVerified)) {
+        data = data.filter(l => (l.verification_status || 'pending') === filterVerified);
+      } else {
+        data = data.filter(l => l.is_verified === (filterVerified === 'true'));
+      }
     }
 
     if (minRating) {
@@ -347,9 +355,10 @@ const ListenersManagement = () => {
           color="from-emerald-500 to-emerald-600"
         />
         <StatCard 
-          icon={UserX} 
-          label="Verified" 
-          value={stats.verified}
+          icon={Shield} 
+          label="Approved" 
+          value={stats.approved}
+          trend={stats.pending > 0 ? `${stats.pending} pending` : ''}
           color="from-purple-500 to-purple-600"
         />
         <StatCard 
@@ -433,9 +442,10 @@ const ListenersManagement = () => {
                   className="w-full p-2.5 border border-gray-200 dark:border-gray-700 rounded-lg 
                     bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white"
                 >
-                  <option value="">All</option>
-                  <option value="true">Verified</option>
-                  <option value="false">Unverified</option>
+                  <option value="">All Status</option>
+                  <option value="approved">Approved</option>
+                  <option value="pending">Pending</option>
+                  <option value="rejected">Rejected</option>
                 </select>
               </div>
               <div>
@@ -559,7 +569,12 @@ const ListenersManagement = () => {
                   paginatedListeners.map(l => (
                     <tr 
                       key={l.listener_id} 
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                      onClick={(e) => {
+                        // Don't navigate if clicking on interactive elements
+                        if (e.target.closest('input[type="checkbox"]') || e.target.closest('button') || e.target.closest('a')) return;
+                        navigate(`/admin-no-all-call/listeners/${l.listener_id}`);
+                      }}
                     >
                       <td className="p-4">
                         <input
@@ -584,7 +599,6 @@ const ListenersManagement = () => {
                           <div>
                             <p 
                               className="font-medium text-gray-900 dark:text-white cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                              onClick={() => navigate(`/admin-no-all-call/listeners/${l.listener_id}`)}
                             >
                               {l.name}
                             </p>
@@ -659,19 +673,33 @@ const ListenersManagement = () => {
                             <span className={`w-1.5 h-1.5 rounded-full ${l.is_online ? 'bg-emerald-500' : 'bg-gray-400'}`} />
                             {l.is_online ? 'Online' : 'Offline'}
                           </span>
-                          {l.is_verified && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium 
-                              bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
-                              <UserCheck className="w-3 h-3" />
-                              Verified
-                            </span>
-                          )}
+                          {(() => {
+                            const vs = l.verification_status || 'pending';
+                            if (vs === 'approved') return (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                                <CheckCircle className="w-3 h-3" />
+                                Approved
+                              </span>
+                            );
+                            if (vs === 'rejected') return (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                                <XCircle className="w-3 h-3" />
+                                Rejected
+                              </span>
+                            );
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">
+                                <AlertCircle className="w-3 h-3" />
+                                Pending
+                              </span>
+                            );
+                          })()}
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => navigate(`/admin/listeners/${l.listener_id}`)}
+                            onClick={() => navigate(`/admin-no-all-call/listeners/${l.listener_id}`)}
                             className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 
                               dark:hover:bg-indigo-900/30 rounded-lg transition-all"
                             title="View Details"
@@ -853,13 +881,27 @@ const ListenersManagement = () => {
                   }`}>
                     {l.is_online ? 'Online' : 'Offline'}
                   </span>
-                  {l.is_verified && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium 
-                      bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
-                      <UserCheck className="w-3 h-3" />
-                      Verified
-                    </span>
-                  )}
+                  {(() => {
+                    const vs = l.verification_status || 'pending';
+                    if (vs === 'approved') return (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                        <CheckCircle className="w-3 h-3" />
+                        Approved
+                      </span>
+                    );
+                    if (vs === 'rejected') return (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                        <XCircle className="w-3 h-3" />
+                        Rejected
+                      </span>
+                    );
+                    return (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">
+                        <AlertCircle className="w-3 h-3" />
+                        Pending
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 {/* Quick action */}

@@ -115,8 +115,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         if (result.success && result.chat != null) {
           _chatId = result.chat!.chatId;
         } else {
+          // VERIFICATION: Handle listener verification failures
+          final error = result.error ?? 'Failed to create chat';
+          final userFriendlyError = error.toLowerCase().contains('not approved') 
+              ? 'This listener is not available for chat at the moment'
+              : error;
+          
           setState(() {
-            _errorMessage = result.error ?? 'Failed to create chat';
+            _errorMessage = userFriendlyError;
             _isLoading = false;
           });
           return;
@@ -411,10 +417,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             _messages.removeWhere((m) => m.messageId == tempId);
           });
           if (mounted) {
+            // VERIFICATION: Show user-friendly error for verification failures
+            final error = result.error ?? 'Failed to send message';
+            final userFriendlyError = error.toLowerCase().contains('not approved') 
+                ? 'This listener is not available for chat at the moment'
+                : error;
+            
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(result.error ?? 'Failed to send message'),
+                content: Text(userFriendlyError),
                 backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
               ),
             );
           }

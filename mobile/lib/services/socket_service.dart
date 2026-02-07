@@ -67,6 +67,7 @@ class SocketService {
     StreamController<IncomingCall>? _incomingCallController;
     StreamController<Map<String, dynamic>>? _callAcceptedController;
     StreamController<Map<String, dynamic>>? _callRejectedController;
+    StreamController<Map<String, dynamic>>? _callFailedController;
     StreamController<Map<String, dynamic>>? _callEndedController;
     StreamController<Map<String, dynamic>>? _callConnectedController;
     StreamController<bool>? _connectionStateController;
@@ -127,6 +128,11 @@ class SocketService {
   StreamController<Map<String, dynamic>> get _callRejected {
     _callRejectedController ??= StreamController<Map<String, dynamic>>.broadcast();
     return _callRejectedController!;
+  }
+  
+  StreamController<Map<String, dynamic>> get _callFailed {
+    _callFailedController ??= StreamController<Map<String, dynamic>>.broadcast();
+    return _callFailedController!;
   }
   
   StreamController<Map<String, dynamic>> get _callEnded {
@@ -198,6 +204,7 @@ class SocketService {
   Stream<IncomingCall> get onIncomingCall => _incomingCall.stream;
   Stream<Map<String, dynamic>> get onCallAccepted => _callAccepted.stream;
   Stream<Map<String, dynamic>> get onCallRejected => _callRejected.stream;
+  Stream<Map<String, dynamic>> get onCallFailed => _callFailed.stream;
   Stream<Map<String, dynamic>> get onCallEnded => _callEnded.stream;
   Stream<Map<String, dynamic>> get onCallConnected => _callConnected.stream;
   Stream<bool> get onConnectionStateChange => _connectionState.stream;
@@ -355,7 +362,9 @@ class SocketService {
     });
     _socket!.on('call:failed', (data) {
       _log('Call failed: $data');
-      // We can add a stream for call:failed if needed, or just log it
+      // VERIFICATION: Handle call failures including listener_not_approved
+      final failureData = data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data);
+      _callFailed.add(failureData);
     });
     _socket!.on('call:ended', (data) {
       _callEnded.add(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));

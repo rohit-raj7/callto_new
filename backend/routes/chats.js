@@ -36,6 +36,23 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Cannot chat with yourself' });
     }
 
+    // VERIFICATION CHECK: If other user is a listener, verify they are approved
+    // Import Listener at top of file to avoid circular dependency issues
+    const { default: Listener } = await import('../models/Listener.js');
+    const otherUserListener = await Listener.findByUserId(other_user_id);
+    
+    if (otherUserListener) {
+      // Other user is a listener - check verification status
+      const verificationStatus = otherUserListener.verification_status || 'approved'; // Backward compatibility
+      if (verificationStatus !== 'approved') {
+        console.log(`[CHATS] Chat blocked: Listener ${otherUserListener.listener_id} not approved (status: ${verificationStatus})`);
+        return res.status(403).json({ 
+          error: 'Listener not approved yet',
+          details: 'This listener is currently under verification and cannot receive chats.'
+        });
+      }
+    }
+
     const chat = await Chat.findOrCreate(req.userId, other_user_id);
 
     res.json({
@@ -122,6 +139,23 @@ router.post('/:chat_id/messages', authenticate, async (req, res) => {
 
     if (chat.user1_id !== req.userId && chat.user2_id !== req.userId) {
       return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // VERIFICATION CHECK: If other party is a listener, verify they are approved
+    const otherUserId = chat.user1_id === req.userId ? chat.user2_id : chat.user1_id;
+    const { default: Listener } = await import('../models/Listener.js');
+    const otherUserListener = await Listener.findByUserId(otherUserId);
+    
+    if (otherUserListener) {
+      // Other user is a listener - check verification status
+      const verificationStatus = otherUserListener.verification_status || 'approved'; // Backward compatibility
+      if (verificationStatus !== 'approved') {
+        console.log(`[CHATS] Message send blocked: Listener ${otherUserListener.listener_id} not approved (status: ${verificationStatus})`);
+        return res.status(403).json({ 
+          error: 'Listener not approved yet',
+          details: 'This listener is currently under verification and cannot receive messages.'
+        });
+      }
     }
 
     const message = await Message.create({

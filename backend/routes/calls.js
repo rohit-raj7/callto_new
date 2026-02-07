@@ -25,6 +25,17 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Listener not found' });
     }
 
+    // VERIFICATION CHECK: Block calls to non-approved listeners
+    // Only listeners with verificationStatus = 'approved' can receive calls
+    const verificationStatus = listener.verification_status || 'approved'; // Backward compatibility
+    if (verificationStatus !== 'approved') {
+      console.log(`[CALLS] Call blocked: Listener ${listener_id} not approved (status: ${verificationStatus})`);
+      return res.status(403).json({ 
+        error: 'Listener not approved yet',
+        details: 'This listener is currently under verification and cannot receive calls.'
+      });
+    }
+
     if (!listener.is_available || !listener.is_online) {
       console.log(`[CALLS] Listener ${listener_id} unavailable: available=${listener.is_available}, online=${listener.is_online}`);
       return res.status(400).json({ 

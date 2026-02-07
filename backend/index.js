@@ -27,6 +27,7 @@ import adminRoutes from './routes/admin.js';
 import contactRoutes from './routes/contacts.js';
 import notificationsRoutes from './routes/notifications.js';
 import User from './models/User.js';
+import Listener from './models/Listener.js'; // Import for verification checks
 import { Chat, Message } from './models/Chat.js';
 import { sendPushFCM } from './utils/fcm.js';
 import NotificationOutbox from './models/NotificationOutbox.js';
@@ -214,8 +215,33 @@ io.on('connection', (socket) => {
   // Initiate call: User -> Listener
   // CRITICAL: This checks if listener is online by looking for their socket
   // Listener is online if they have an entry in listenerSockets OR connectedUsers
-  socket.on('call:initiate', (data) => {
+  socket.on('call:initiate', async (data) => {
     const { listenerId, ...callData } = data || {};
+    
+    // VERIFICATION CHECK: Ensure listener is approved before allowing call
+    try {
+      const listener = await Listener.findByUserId(listenerId);
+      if (listener) {
+        const verificationStatus = listener.verification_status || 'approved'; // Backward compatibility
+        if (verificationStatus !== 'approved') {
+          console.log(`[SOCKET] call:initiate blocked: Listener ${listenerId} not approved (status: ${verificationStatus})`);
+          socket.emit('call:failed', { 
+            callId: callData.callId, 
+            reason: 'listener_not_approved',
+            message: 'Listener not approved yet'
+          });
+          return;
+        }
+      }
+    } catch (err) {
+      console.error(`[SOCKET] call:initiate verification check failed:`, err);
+      socket.emit('call:failed', { 
+        callId: callData.callId, 
+        reason: 'verification_check_failed',
+        message: 'Failed to verify listener status'
+      });
+      return;
+    }
     
     // Check both maps for the listener's socket
     // listenerSockets: explicitly registered as listener (listener:join)

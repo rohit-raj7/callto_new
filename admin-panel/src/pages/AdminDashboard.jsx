@@ -14,7 +14,7 @@ const AdminDashboard = () => {
     totalListeners: 0,
     activeListeners: 0,
     averageRating: 0,
-    verifiedUsers: 0,
+    approvedListeners: 0,
     newUsersToday: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -45,7 +45,7 @@ const AdminDashboard = () => {
       const totalUsers = usersData.length;
       const totalListeners = listenersData.length;
       const activeListeners = listenersData.filter(l => l.is_online).length;
-      const verifiedUsers = usersData.filter(u => u.is_verified || u.email_verified).length;
+      const approvedListeners = listenersData.filter(l => (l.verification_status || 'pending') === 'approved').length;
       
       // Calculate average rating from listeners
       const listenersWithRating = listenersData.filter(l => l.average_rating && l.average_rating > 0);
@@ -66,7 +66,7 @@ const AdminDashboard = () => {
         totalListeners,
         activeListeners,
         averageRating: averageRating.toFixed(1),
-        verifiedUsers,
+        approvedListeners,
         newUsersToday,
       });
 
@@ -356,8 +356,8 @@ const AdminDashboard = () => {
               <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl mb-3">
                 <UserCheck className="w-10 h-10" strokeWidth={2.5} />
               </div>
-              <span className="text-xs font-semibold uppercase tracking-wider opacity-90 mb-2 block">Verified</span>
-              <span className="text-3xl font-extrabold">{stats.verifiedUsers}</span>
+              <span className="text-xs font-semibold uppercase tracking-wider opacity-90 mb-2 block">Approved</span>
+              <span className="text-3xl font-extrabold">{stats.approvedListeners}</span>
             </div>
           </div>
           <div className="group relative bg-gradient-to-br from-pink-500 via-rose-600 to-red-600 shadow-xl rounded-2xl p-6 flex flex-col items-center text-white hover:scale-105 hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden">

@@ -3,7 +3,8 @@ import axios from 'axios';
 const resolvedBase =
   typeof import.meta.env.VITE_API_BASE_URL === 'string' && import.meta.env.VITE_API_BASE_URL.length > 0
     ? import.meta.env.VITE_API_BASE_URL
-    : 'https://call-to.onrender.com/api';
+    // : 'https://call-to.onrender.com/api';
+    : 'http://localhost:3002/api';
 const localFallbacks = [
   'http://localhost:3002/api',
   'http://127.0.0.1:3002/api'
@@ -79,6 +80,8 @@ export const deleteListener = (listener_id) => api.delete(`/listeners/${listener
 // Admin methods
 export const getAdminListeners = () => api.get('/admin/listeners');
 export const getContactMessages = (params = {}) => api.get('/admin/contact-messages', { params });
+export const updateListenerVerificationStatus = (listener_id, status) => 
+  api.put(`/admin/listeners/${listener_id}/verification-status`, { status });
 export const getOutbox = (params = {}) => api.get('/notifications/outbox', { params });
 export const updateOutbox = (id, payload) => api.put(`/notifications/outbox/${id}`, payload);
 export const deleteOutbox = (id) => api.delete(`/notifications/outbox/${id}`);

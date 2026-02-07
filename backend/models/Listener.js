@@ -33,9 +33,9 @@ class Listener {
         INSERT INTO listeners (
           user_id, professional_name, age, specialties, languages,
           rate_per_minute, currency, profile_image, experience_years,
-          education, certifications, mobile_number
+          education, certifications, mobile_number, verification_status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending')
         RETURNING *
       `;
 
@@ -198,6 +198,7 @@ class Listener {
       FROM listeners l
       JOIN users u ON l.user_id = u.user_id
       WHERE u.is_active = TRUE
+        AND COALESCE(l.verification_status, 'approved') = 'approved' -- VERIFICATION CHECK: Only show approved listeners
     `;
     const values = [];
     let paramIndex = 1;
@@ -290,6 +291,7 @@ class Listener {
       FROM listeners l
       JOIN users u ON l.user_id = u.user_id
       WHERE u.is_active = TRUE
+        AND COALESCE(l.verification_status, 'approved') = 'approved' -- VERIFICATION CHECK: Only show approved listeners
         AND (
           l.professional_name ILIKE $1 
           OR u.city ILIKE $1
@@ -321,6 +323,7 @@ class Listener {
         l.total_ratings,
         l.is_available,
         l.is_verified,
+        l.verification_status,
         l.created_at,
         l.updated_at,
         l.last_active_at,
@@ -354,6 +357,7 @@ class Listener {
         total_ratings: row.total_ratings,
         is_available: row.is_available,
         is_verified: row.is_verified,
+        verification_status: row.verification_status,
         created_at: row.created_at,
         updated_at: row.updated_at,
         last_active_at: row.last_active_at,
@@ -545,6 +549,7 @@ class Listener {
       FROM listeners l
       JOIN users u ON l.user_id = u.user_id
       WHERE l.is_available = TRUE AND u.is_active = TRUE
+        AND COALESCE(l.verification_status, 'approved') = 'approved' -- VERIFICATION CHECK: Only show approved listeners
     `;
     const values = [];
 
@@ -569,6 +574,30 @@ class Listener {
       WHERE listener_id = $3
     `;
     await pool.query(query, [average_rating, total_ratings, listener_id]);
+  }
+
+  // Update listener verification status (admin only)
+  // VERIFICATION CONTROL: This method allows admin to approve/reject listeners
+  static async updateVerificationStatus(listener_id, status) {
+    const validStatuses = ['pending', 'approved', 'rejected'];
+    if (!validStatuses.includes(status)) {
+      throw new Error(`Invalid verification status. Must be one of: ${validStatuses.join(', ')}`);
+    }
+
+    const query = `
+      UPDATE listeners 
+      SET verification_status = $1, 
+          is_verified = $2,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE listener_id = $3
+      RETURNING listener_id, verification_status, is_verified
+    `;
+    
+    // Keep is_verified in sync: true if approved, false otherwise
+    const isVerified = status === 'approved';
+    
+    const result = await pool.query(query, [status, isVerified, listener_id]);
+    return result.rows[0];
   }
 
   // Delete listener and all related data

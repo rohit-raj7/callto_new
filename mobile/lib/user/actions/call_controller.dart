@@ -141,6 +141,29 @@ class UserCallController extends ChangeNotifier {
         if (!_disposed) endCall();
       });
     });
+
+    // VERIFICATION: Handle call:failed events for verification failures
+    _socketService.onCallFailed.listen((data) {
+      debugPrint('UserCallController: call failed – ${data['reason'] ?? 'unknown'}');
+      final reason = data['reason']?.toString() ?? '';
+      final message = data['message']?.toString();
+      
+      // Handle listener verification failure
+      if (reason == 'listener_not_approved') {
+        _setError(message ?? 'This listener is not available for calls at the moment');
+      } else if (reason == 'listener_offline') {
+        _setError('Listener is currently offline');
+      } else if (reason == 'verification_check_failed') {
+        _setError('Unable to verify listener status. Please try again');
+      } else {
+        _setError(message ?? 'Call failed. Please try again');
+      }
+      
+      _stopRingtone();
+      Future.delayed(const Duration(seconds: 3), () {
+        if (!_disposed) endCall();
+      });
+    });
   }
 
   // ── Internal state machine ──

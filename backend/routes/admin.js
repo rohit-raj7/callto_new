@@ -166,4 +166,45 @@ router.get('/contact-messages', authenticateAdmin, async (req, res) => {
   }
 });
 
+// PUT /api/admin/listeners/:listener_id/verification-status
+// Update listener verification status (approve/reject)
+// VERIFICATION CONTROL: Admin endpoint to approve or reject listener applications
+router.put('/listeners/:listener_id/verification-status', authenticateAdmin, async (req, res) => {
+  try {
+    const { listener_id } = req.params;
+    const { status } = req.body;
+
+    console.log(`[ADMIN] Updating verification status for listener ${listener_id} to: ${status}`);
+
+    if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ 
+        error: 'Invalid status. Must be one of: pending, approved, rejected' 
+      });
+    }
+
+    // Check if listener exists
+    const listener = await Listener.findById(listener_id);
+    if (!listener) {
+      return res.status(404).json({ error: 'Listener not found' });
+    }
+
+    // Update verification status
+    const updated = await Listener.updateVerificationStatus(listener_id, status);
+
+    console.log(`[ADMIN] Listener ${listener_id} verification status updated to: ${status}`);
+
+    res.json({
+      message: `Listener verification status updated to ${status}`,
+      listener: {
+        listener_id: updated.listener_id,
+        verification_status: updated.verification_status,
+        is_verified: updated.is_verified
+      }
+    });
+  } catch (error) {
+    console.error('Update listener verification status error:', error);
+    res.status(500).json({ error: 'Failed to update verification status' });
+  }
+});
+
 export default router;

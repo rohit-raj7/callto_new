@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS listeners (
     last_active_at TIMESTAMP,
     is_available BOOLEAN DEFAULT TRUE,
     is_verified BOOLEAN DEFAULT FALSE,
+    verification_status VARCHAR(20) DEFAULT 'pending' CHECK (verification_status IN ('pending', 'approved', 'rejected')),
     voice_verified BOOLEAN DEFAULT FALSE,
     voice_verification_url TEXT,
     profile_image TEXT,
