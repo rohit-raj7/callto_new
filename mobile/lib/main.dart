@@ -438,6 +438,12 @@ class _SplashScreenState extends State<SplashScreen> {
                 if (profileResult.listener!.avatarUrl != null) {
                   await _storageService.saveListenerAvatarUrl(profileResult.listener!.avatarUrl!);
                 }
+                // Override socket user info with listener profile data
+                // so chat messages show professional name & asset avatar
+                _socketService.setUserInfo(
+                  userName: profileResult.listener!.professionalName ?? user.displayName,
+                  userAvatar: profileResult.listener!.avatarUrl ?? user.avatarUrl,
+                );
               }
             } catch (e) {
               print('Failed to fetch listener profile: $e');

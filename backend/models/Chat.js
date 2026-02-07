@@ -113,9 +113,12 @@ class Message {
   // Get messages for a chat
   static async getChatMessages(chat_id, limit = 50, offset = 0) {
     const query = `
-      SELECT m.*, u.display_name as sender_name, u.avatar_url as sender_avatar
+      SELECT m.*, 
+             COALESCE(l.professional_name, u.display_name) as sender_name, 
+             COALESCE(l.profile_image, u.avatar_url) as sender_avatar
       FROM messages m
       JOIN users u ON m.sender_id = u.user_id
+      LEFT JOIN listeners l ON m.sender_id = l.user_id
       WHERE m.chat_id = $1
       ORDER BY m.created_at DESC
       LIMIT $2 OFFSET $3

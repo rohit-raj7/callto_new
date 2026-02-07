@@ -433,6 +433,26 @@ io.on('connection', (socket) => {
         media_url: mediaUrl
       });
 
+      // Look up sender's display info from DB (prefer listener profile over Google data)
+      let senderName = socket.userName || 'Unknown';
+      let senderAvatar = socket.userAvatar;
+      try {
+        const senderInfoResult = await pool.query(
+          `SELECT COALESCE(l.professional_name, u.display_name) as sender_name,
+                  COALESCE(l.profile_image, u.avatar_url) as sender_avatar
+           FROM users u
+           LEFT JOIN listeners l ON u.user_id = l.user_id
+           WHERE u.user_id = $1`,
+          [socket.userId]
+        );
+        if (senderInfoResult.rows.length > 0) {
+          senderName = senderInfoResult.rows[0].sender_name || senderName;
+          senderAvatar = senderInfoResult.rows[0].sender_avatar || senderAvatar;
+        }
+      } catch (lookupErr) {
+        console.error('[SOCKET] Sender info lookup failed, using socket data:', lookupErr.message);
+      }
+
       const messageData = {
         chatId,
         message: {
@@ -442,8 +462,8 @@ io.on('connection', (socket) => {
           created_at: message.created_at instanceof Date
             ? message.created_at.toISOString()
             : message.created_at,
-          sender_name: socket.userName || 'Unknown',
-          sender_avatar: socket.userAvatar
+          sender_name: senderName,
+          sender_avatar: senderAvatar
         }
       };
 
@@ -470,8 +490,9 @@ io.on('connection', (socket) => {
 
       console.log(`[SOCKET] Message sent in chat ${chatId} by ${socket.userId}`);
     } catch (error) {
-      console.error(`[SOCKET] Error sending message:`, error);
-      socket.emit('chat:error', { error: 'Failed to send message' });
+      console.error(`[SOCKET] Error sending message:`, error.message || error);
+      console.error(`[SOCKET] Error stack:`, error.stack);
+      socket.emit('chat:error', { error: `Failed to send message: ${error.message || 'Unknown error'}` });
     }
   });
 
