@@ -124,9 +124,7 @@ class _CallingState extends State<Calling>
 
   ImageProvider? _getAvatarImage(String? url) {
     if (url == null || url.isEmpty) return null;
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return NetworkImage(url);
-    }
+    // if (url.startsWith('http')) return NetworkImage(url);
     if (url.startsWith('assets/')) return AssetImage(url);
     return null;
   }
@@ -162,6 +160,19 @@ class _CallingState extends State<Calling>
     final isEnded = callState == CallState.ended;
     final audioMgr = _controller.audioDeviceManager;
 
+    // Responsive sizing based on screen width
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final isMediumScreen = screenWidth < 400;
+    final brandFontSize = isSmallScreen ? 30.0 : (isMediumScreen ? 34.0 : 38.0);
+    final avatarSize = isSmallScreen ? 80.0 : (isMediumScreen ? 90.0 : 100.0);
+    final statusFontSize = isSmallScreen ? 16.0 : 18.0;
+    final durationFontSize = isSmallScreen ? 20.0 : 22.0;
+    final horizontalPadding = isSmallScreen ? 12.0 : (isMediumScreen ? 16.0 : 20.0);
+    final topBarPadding = isSmallScreen ? 12.0 : 16.0;
+    final chipFontSize = isSmallScreen ? 11.0 : 13.0;
+    final chipPaddingH = isSmallScreen ? 14.0 : 18.0;
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -187,12 +198,6 @@ class _CallingState extends State<Calling>
               // ── Status indicator ──
               _buildStatusIndicator(primary, callState),
 
-              if (_controller.connectionError != null &&
-                  callState != CallState.connected) ...[
-                const SizedBox(height: 16),
-                _buildErrorBanner(),
-              ],
-
               const Spacer(flex: 2),
 
               // ── Avatar row (caller + listener) ──
@@ -216,9 +221,14 @@ class _CallingState extends State<Calling>
   Widget _buildTopBar(Color primary, AudioDeviceManager audioMgr) {
     final route = audioMgr.currentRoute;
     final Color chipColor = _chipColorFor(route);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final topBarPadding = isSmallScreen ? 12.0 : 16.0;
+    final chipPaddingH = isSmallScreen ? 14.0 : 18.0;
+    final chipFontSize = isSmallScreen ? 11.0 : 13.0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: topBarPadding, vertical: 12),
       child: Row(
         children: [
           Container(
@@ -243,7 +253,7 @@ class _CallingState extends State<Calling>
               onTap: () => AudioRouteBottomSheet.show(context, audioMgr),
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                    EdgeInsets.symmetric(horizontal: chipPaddingH, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(25),
@@ -253,14 +263,18 @@ class _CallingState extends State<Calling>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(_audioRouteIcon(route),
-                        color: chipColor, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      _chipTextFor(route),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: chipColor,
-                        fontWeight: FontWeight.w500,
+                        color: chipColor, size: isSmallScreen ? 16 : 18),
+                    SizedBox(width: isSmallScreen ? 6 : 8),
+                    Flexible(
+                      child: Text(
+                        _chipTextFor(route),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: chipFontSize,
+                          color: chipColor,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
@@ -304,10 +318,15 @@ class _CallingState extends State<Calling>
   // ── Brand name ──
 
   Widget _buildBrandName(Color primary, Color errorColor) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final isMediumScreen = screenWidth < 400;
+    final brandFontSize = isSmallScreen ? 30.0 : (isMediumScreen ? 34.0 : 38.0);
+
     return RichText(
       text: TextSpan(
-        style: const TextStyle(
-          fontSize: 38,
+        style: TextStyle(
+          fontSize: brandFontSize,
           fontWeight: FontWeight.bold,
           fontFamily: 'Cursive',
         ),
@@ -335,6 +354,11 @@ class _CallingState extends State<Calling>
   }
 
   Widget _statusContent(Color primary, CallState state) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final statusFontSize = isSmallScreen ? 16.0 : 18.0;
+    final durationFontSize = isSmallScreen ? 20.0 : 22.0;
+
     switch (state) {
       case CallState.calling:
       case CallState.connecting:
@@ -344,10 +368,10 @@ class _CallingState extends State<Calling>
           mainAxisSize: MainAxisSize.min,
           children: [
             if (!hasError)
-              const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
+              SizedBox(
+                width: isSmallScreen ? 18 : 20,
+                height: isSmallScreen ? 18 : 20,
+                child: const CircularProgressIndicator(
                   valueColor:
                       AlwaysStoppedAnimation<Color>(Colors.greenAccent),
                   strokeWidth: 2.5,
@@ -355,14 +379,15 @@ class _CallingState extends State<Calling>
               )
             else
               Icon(Icons.error_outline,
-                  color: Theme.of(context).colorScheme.error, size: 20),
-            const SizedBox(width: 10),
+                  color: Theme.of(context).colorScheme.error, 
+                  size: isSmallScreen ? 18 : 20),
+            SizedBox(width: isSmallScreen ? 8 : 10),
             Flexible(
               child: Text(
                 _controller.statusText,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: statusFontSize,
                   fontWeight: FontWeight.w600,
                   color: hasError
                       ? Theme.of(context).colorScheme.error
@@ -379,8 +404,8 @@ class _CallingState extends State<Calling>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 10,
-              height: 10,
+              width: isSmallScreen ? 8 : 10,
+              height: isSmallScreen ? 8 : 10,
               decoration: BoxDecoration(
                 color: Colors.green,
                 shape: BoxShape.circle,
@@ -393,15 +418,15 @@ class _CallingState extends State<Calling>
                 ],
               ),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: isSmallScreen ? 8 : 10),
             Text(
               _controller.formattedDuration,
-              style: const TextStyle(
-                fontSize: 22,
+              style: TextStyle(
+                fontSize: durationFontSize,
                 fontWeight: FontWeight.w700,
                 color: Colors.green,
                 letterSpacing: 1,
-                fontFeatures: [FontFeature.tabularFigures()],
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ],
@@ -416,38 +441,16 @@ class _CallingState extends State<Calling>
     }
   }
 
-  // ── Error banner ──
-
-  Widget _buildErrorBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 32),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              _controller.connectionError!,
-              style: const TextStyle(color: Colors.redAccent, fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ── Avatar row (caller + listener) ──
 
   Widget _buildAvatarRow(Color primary, bool isConnected) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final isMediumScreen = screenWidth < 400;
+    final horizontalPadding = isSmallScreen ? 12.0 : (isMediumScreen ? 16.0 : 20.0);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: Row(
         children: [
           // Left – Caller (the user who made the call)
@@ -485,13 +488,18 @@ class _CallingState extends State<Calling>
     final avatarImage = _getAvatarImage(imageUrl);
     final Color borderColor =
         isConnected ? Colors.green.withOpacity(0.6) : primary.withOpacity(0.6);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final isMediumScreen = screenWidth < 400;
+    final avatarSize = isSmallScreen ? 80.0 : (isMediumScreen ? 90.0 : 100.0);
+    final nameFontSize = isSmallScreen ? 14.0 : 16.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 100,
-          height: 100,
+          width: avatarSize,
+          height: avatarSize,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(color: borderColor, width: 3),
@@ -508,21 +516,21 @@ class _CallingState extends State<Calling>
                 ? Image(
                     image: avatarImage,
                     fit: BoxFit.cover,
-                    width: 100,
-                    height: 100,
-                    errorBuilder: (_, __, ___) => _fallbackAvatar(),
+                    width: avatarSize,
+                    height: avatarSize,
+                    errorBuilder: (_, __, ___) => _fallbackAvatar(avatarSize),
                   )
-                : _fallbackAvatar(),
+                : _fallbackAvatar(avatarSize),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: isSmallScreen ? 8 : 12),
         Text(
           name,
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 16,
+          style: TextStyle(
+            fontSize: nameFontSize,
             fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
@@ -531,24 +539,32 @@ class _CallingState extends State<Calling>
     );
   }
 
-  Widget _fallbackAvatar() {
+  Widget _fallbackAvatar([double size = 100]) {
+    final iconSize = size * 0.5;
     return Container(
+      width: size,
+      height: size,
       color: const Color(0xFFB39DDB),
-      child: const Icon(Icons.person, size: 50, color: Colors.white70),
+      child: Icon(Icons.person, size: iconSize, color: Colors.white70),
     );
   }
 
   Widget _buildCallIconCenter(Color primary, bool isConnected) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final iconSize = isSmallScreen ? 40.0 : 48.0;
+    final phoneIconSize = isSmallScreen ? 20.0 : 24.0;
+
     if (isConnected) {
       return Container(
-        width: 48,
-        height: 48,
+        width: iconSize,
+        height: iconSize,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.green.withOpacity(0.15),
           border: Border.all(color: Colors.green.withOpacity(0.4), width: 2),
         ),
-        child: const Icon(Icons.phone, color: Colors.green, size: 24),
+        child: Icon(Icons.phone, color: Colors.green, size: phoneIconSize),
       );
     }
 
@@ -556,12 +572,12 @@ class _CallingState extends State<Calling>
       mainAxisSize: MainAxisSize.min,
       children: [
         ...List.generate(
-          3,
+          isSmallScreen ? 2 : 3,
           (i) => AnimatedBuilder(
             animation: _pulseController,
             builder: (ctx, _) => Icon(
               Icons.chevron_right,
-              size: 18,
+              size: isSmallScreen ? 16 : 18,
               color: primary.withOpacity(
                 0.25 + 0.75 * ((_pulseController.value + i * 0.25) % 1.0),
               ),
@@ -574,9 +590,10 @@ class _CallingState extends State<Calling>
             AnimatedBuilder(
               animation: _pulseController,
               builder: (context, child) {
+                final pulseSize = isSmallScreen ? 8.0 : 12.0;
                 return Container(
-                  width: 52 + (12 * _pulseController.value),
-                  height: 52 + (12 * _pulseController.value),
+                  width: iconSize + 4 + (pulseSize * _pulseController.value),
+                  height: iconSize + 4 + (pulseSize * _pulseController.value),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
@@ -589,8 +606,8 @@ class _CallingState extends State<Calling>
               },
             ),
             Container(
-              width: 48,
-              height: 48,
+              width: iconSize,
+              height: iconSize,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: primary.withOpacity(0.15),
@@ -603,17 +620,17 @@ class _CallingState extends State<Calling>
                   ),
                 ],
               ),
-              child: Icon(Icons.phone, color: primary, size: 24),
+              child: Icon(Icons.phone, color: primary, size: phoneIconSize),
             ),
           ],
         ),
         ...List.generate(
-          3,
+          isSmallScreen ? 2 : 3,
           (i) => AnimatedBuilder(
             animation: _pulseController,
             builder: (ctx, _) => Icon(
               Icons.chevron_left,
-              size: 18,
+              size: isSmallScreen ? 16 : 18,
               color: primary.withOpacity(
                 0.25 + 0.75 * ((_pulseController.value + i * 0.25) % 1.0),
               ),
@@ -632,9 +649,12 @@ class _CallingState extends State<Calling>
       Color primary, bool isEnded, AudioDeviceManager audioMgr) {
     final isMuted = _controller.isMuted;
     final currentRoute = audioMgr.currentRoute;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final actionBarPadding = isSmallScreen ? 20.0 : 32.0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: EdgeInsets.symmetric(horizontal: actionBarPadding),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [

@@ -6,6 +6,15 @@ import '../../services/socket_service.dart';
 import '../../models/chat_model.dart';
 import '../../ui/skeleton_loading_ui/chat_item_skeleton.dart';
 
+/// Resolve avatar string to the correct ImageProvider.
+/// Asset paths (e.g. 'assets/...') → AssetImage, URLs → NetworkImage.
+ImageProvider? _resolveAvatar(String? avatar) {
+  if (avatar == null || avatar.isEmpty) return null;
+  // if (avatar.startsWith('http')) return NetworkImage(avatar);
+  if (avatar.startsWith('assets/')) return AssetImage(avatar);
+  return null;
+}
+
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
@@ -308,10 +317,17 @@ class _ChatScreenState extends State<ChatScreen> {
                   children: [
                     CircleAvatar(
                       radius: 28,
-                      backgroundColor: Colors.white,
-                      backgroundImage: chat.otherUserAvatar != null
-                          ? NetworkImage(chat.otherUserAvatar!)
-                          : const AssetImage('assets/images/khushi.jpg') as ImageProvider,
+                      backgroundColor: const Color(0xFFFFF1F5),
+                      backgroundImage: _resolveAvatar(chat.otherUserAvatar),
+                      onBackgroundImageError: (chat.otherUserAvatar != null &&
+                              chat.otherUserAvatar!.isNotEmpty &&
+                              chat.otherUserAvatar!.startsWith('http'))
+                          ? (_, __) {} // silently ignore network errors
+                          : null,
+                      child: (chat.otherUserAvatar == null ||
+                              chat.otherUserAvatar!.isEmpty)
+                          ? const Icon(Icons.person, size: 30, color: Colors.pinkAccent)
+                          : null,
                     ),
                     if (hasUnread)
                       Positioned(

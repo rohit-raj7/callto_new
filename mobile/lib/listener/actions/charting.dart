@@ -917,9 +917,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundImage: widget.otherUserAvatar != null
-                ? NetworkImage(widget.otherUserAvatar!)
-                : AssetImage(widget.imagePath) as ImageProvider,
+            backgroundColor: const Color(0xFFFFF1F5),
+            backgroundImage: _resolveAvatar(widget.otherUserAvatar),
+            onBackgroundImageError: (widget.otherUserAvatar != null &&
+                    widget.otherUserAvatar!.isNotEmpty &&
+                    widget.otherUserAvatar!.startsWith('http'))
+                ? (_, __) {}
+                : null,
+            child: (widget.otherUserAvatar == null ||
+                    widget.otherUserAvatar!.isEmpty)
+                ? const Icon(Icons.person, size: 20, color: Colors.pinkAccent)
+                : null,
           ),
           const SizedBox(width: 12),
           Column(
@@ -1019,5 +1027,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         );
       },
     );
+  }
+
+  /// Resolve avatar string to the correct ImageProvider.
+  /// Asset paths (e.g. 'assets/...') → AssetImage, URLs → NetworkImage.
+  static ImageProvider? _resolveAvatar(String? avatar) {
+    if (avatar == null || avatar.isEmpty) return null;
+    if (avatar.startsWith('http')) return NetworkImage(avatar);
+    if (avatar.startsWith('assets/')) return AssetImage(avatar);
+    return null;
   }
 }
