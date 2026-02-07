@@ -3,8 +3,8 @@ import axios from 'axios';
 const resolvedBase =
   typeof import.meta.env.VITE_API_BASE_URL === 'string' && import.meta.env.VITE_API_BASE_URL.length > 0
     ? import.meta.env.VITE_API_BASE_URL
-    // : 'https://call-to.onrender.com/api';
-    : 'http://localhost:3002/api';
+    : 'https://call-to.onrender.com/api';
+    // : 'http://localhost:3002/api';
 const localFallbacks = [
   'http://localhost:3002/api',
   'http://127.0.0.1:3002/api'

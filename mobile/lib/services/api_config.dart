@@ -8,10 +8,10 @@ class ApiConfig {
 //               ? 'http://10.0.2.2:3002' 
 //               : 'http://localhost:3002'))
 //       : 'https://callto-4.onrender.com';
+// 
+  static final String baseUrl = 'https://call-to.onrender.com';
 
-  // static final String baseUrl = 'https://call-to.onrender.com';
-
-  static final String baseUrl ='http://localhost:3002';
+  // static final String baseUrl ='http://localhost:3002';
       
 
   static final String socketUrl = baseUrl;
