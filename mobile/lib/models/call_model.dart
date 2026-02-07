@@ -50,6 +50,15 @@ class Call {
       return 0.0;
     }
 
+    // Helper to safely parse booleans from various formats
+    bool? _parseBool(dynamic value) {
+      if (value == null) return null;
+      if (value is bool) return value;
+      if (value is String) return value.toLowerCase() == 'true' || value == 't' || value == '1';
+      if (value is int) return value == 1;
+      return false;
+    }
+
     return Call(
       callId: json['call_id']?.toString() ?? '',
       callerId: json['caller_id']?.toString() ?? '',
@@ -75,7 +84,7 @@ class Call {
       listenerName: json['listener_name'] ?? json['professional_name'] ?? json['listener_display_name'],
       listenerAvatar: json['listener_avatar'] ?? json['profile_image'],
       listenerUserId: json['listener_user_id']?.toString(),
-      listenerOnline: json['listener_online'] == null ? null : json['listener_online'] == true,
+      listenerOnline: _parseBool(json['listener_online']),
     );
   }
 

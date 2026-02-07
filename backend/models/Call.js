@@ -78,7 +78,11 @@ class Call {
              l.professional_name as listener_name, 
              l.profile_image as listener_avatar,
              l.user_id as listener_user_id,
-             l.is_online as listener_online,
+             CASE 
+               WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '2 minutes' 
+               THEN true 
+               ELSE false 
+             END as listener_online,
              u.display_name as listener_display_name,
              u.city
       FROM calls c
@@ -115,7 +119,11 @@ class Call {
       SELECT c.*, 
              l.professional_name, l.profile_image,
              l.user_id as listener_user_id,
-              l.is_online as listener_online,
+             CASE 
+               WHEN l.last_active_at IS NOT NULL AND (NOW() - l.last_active_at) <= INTERVAL '2 minutes' 
+               THEN true 
+               ELSE false 
+             END as listener_online,
              u.display_name as listener_display_name
       FROM calls c
       JOIN listeners l ON c.listener_id = l.listener_id
