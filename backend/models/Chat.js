@@ -37,8 +37,8 @@ class Chat {
     const query = `
       SELECT c.*, 
              CASE 
-               WHEN c.user1_id = $1 THEN u2.display_name
-               ELSE u1.display_name
+               WHEN c.user1_id = $1 THEN COALESCE(l2.professional_name, u2.display_name)
+               ELSE COALESCE(l1.professional_name, u1.display_name)
              END as other_user_name,
              CASE 
                WHEN c.user1_id = $1 THEN COALESCE(l2.profile_image, u2.avatar_url)
