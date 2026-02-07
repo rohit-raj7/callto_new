@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/call_service.dart';
+import '../../services/storage_service.dart';
 import '../../models/call_model.dart';
+import '../actions/calling.dart';
+import '../actions/charting.dart';
 
 class RecentsScreen extends StatefulWidget {
   const RecentsScreen({super.key});
@@ -12,15 +15,29 @@ class RecentsScreen extends StatefulWidget {
 
 class _RecentsScreenState extends State<RecentsScreen> {
   final CallService _callService = CallService();
+  final StorageService _storageService = StorageService();
   
   bool _isLoading = true;
   String? _error;
   List<Call> _callHistory = [];
+  String? _currentUserName;
+  String? _currentUserAvatar;
 
   @override
   void initState() {
     super.initState();
     _loadCallHistory();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final name = await _storageService.getDisplayName();
+    final avatar = await _storageService.getAvatarUrl();
+    if (!mounted) return;
+    setState(() {
+      _currentUserName = name;
+      _currentUserAvatar = avatar;
+    });
   }
 
   Future<void> _loadCallHistory() async {
@@ -374,9 +391,21 @@ class _RecentsScreenState extends State<RecentsScreen> {
                   ),
                   child: IconButton(
                     icon: const Icon(Icons.chat_bubble_outline, color: Colors.grey, size: 22),
-                    onPressed: () {
-                      // TODO: Navigate to chat
-                    },
+                    onPressed: call.listenerUserId == null
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChatPage(
+                                  expertName: name,
+                                  imagePath: avatar,
+                                  otherUserId: call.listenerUserId,
+                                  otherUserAvatar: call.listenerAvatar,
+                                ),
+                              ),
+                            );
+                          },
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -393,9 +422,23 @@ class _RecentsScreenState extends State<RecentsScreen> {
                   ),
                   child: IconButton(
                     icon: const Icon(Icons.call, color: Colors.white, size: 22),
-                    onPressed: () {
-                      // TODO: Initiate call with listenerId
-                    },
+                    onPressed: call.listenerUserId == null
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => Calling(
+                                  callerName: name,
+                                  callerAvatar: avatar,
+                                  userName: _currentUserName ?? 'You',
+                                  userAvatar: _currentUserAvatar,
+                                  listenerId: call.listenerUserId,
+                                  listenerDbId: call.listenerId,
+                                ),
+                              ),
+                            );
+                          },
                   ),
                 ),
               ],

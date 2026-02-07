@@ -77,6 +77,7 @@ class Call {
       SELECT c.*, 
              l.professional_name as listener_name, 
              l.profile_image as listener_avatar,
+             l.user_id as listener_user_id,
              u.display_name as listener_display_name,
              u.city
       FROM calls c
@@ -112,6 +113,7 @@ class Call {
     const query = `
       SELECT c.*, 
              l.professional_name, l.profile_image,
+             l.user_id as listener_user_id,
              u.display_name as listener_display_name
       FROM calls c
       JOIN listeners l ON c.listener_id = l.listener_id

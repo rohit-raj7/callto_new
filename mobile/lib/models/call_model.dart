@@ -17,6 +17,7 @@ class Call {
   final String? callerAvatar;
   final String? listenerName;
   final String? listenerAvatar;
+  final String? listenerUserId;
 
   Call({
     required this.callId,
@@ -34,6 +35,7 @@ class Call {
     this.callerAvatar,
     this.listenerName,
     this.listenerAvatar,
+    this.listenerUserId,
   });
 
   factory Call.fromJson(Map<String, dynamic> json) {
@@ -70,6 +72,7 @@ class Call {
       callerAvatar: json['caller_avatar'],
       listenerName: json['listener_name'] ?? json['professional_name'] ?? json['listener_display_name'],
       listenerAvatar: json['listener_avatar'] ?? json['profile_image'],
+      listenerUserId: json['listener_user_id']?.toString(),
     );
   }
 
@@ -86,6 +89,7 @@ class Call {
       'rate_per_minute': ratePerMinute,
       'total_cost': totalCost,
       'created_at': createdAt?.toIso8601String(),
+      'listener_user_id': listenerUserId,
     };
   }
 
