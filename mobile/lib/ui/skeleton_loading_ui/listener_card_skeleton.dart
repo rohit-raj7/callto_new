@@ -9,10 +9,20 @@ class ListenerCardSkeleton extends StatelessWidget {
     final bg = scheme.surface;
     final fill = scheme.surfaceVariant;
     final border = Theme.of(context).dividerColor.withOpacity(0.12);
+    
+    // Get screen width for responsive sizing
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    
+    // Responsive sizing
+    final avatarSize = isSmallScreen ? 48.0 : 56.0;
+    final buttonWidth = isSmallScreen ? 90.0 : 110.0;
+    final horizontalPadding = isSmallScreen ? 8.0 : 12.0;
+    final spacing = isSmallScreen ? 6.0 : 8.0;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+      padding: EdgeInsets.all(horizontalPadding),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(16),
@@ -21,11 +31,12 @@ class ListenerCardSkeleton extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Avatar with online indicator
           Stack(
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: avatarSize,
+                height: avatarSize,
                 decoration: const BoxDecoration(shape: BoxShape.circle),
                 child: DecoratedBox(
                   decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
@@ -35,8 +46,8 @@ class ListenerCardSkeleton extends StatelessWidget {
                 right: 2,
                 top: 2,
                 child: Container(
-                  width: 12,
-                  height: 12,
+                  width: isSmallScreen ? 10 : 12,
+                  height: isSmallScreen ? 10 : 12,
                   decoration: BoxDecoration(
                     color: fill,
                     shape: BoxShape.circle,
@@ -46,23 +57,27 @@ class ListenerCardSkeleton extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: horizontalPadding),
+          
+          // Content area
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
+                // Name and verified icon
                 Row(
                   children: [
                     Expanded(
                       child: Container(
-                        height: 16,
+                        height: isSmallScreen ? 14 : 16,
                         decoration: BoxDecoration(
                           color: fill,
                           borderRadius: BorderRadius.circular(6),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: spacing),
                     Container(
                       width: 16,
                       height: 16,
@@ -73,7 +88,9 @@ class ListenerCardSkeleton extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: spacing),
+                
+                // Language/specialty
                 Row(
                   children: [
                     Container(
@@ -85,9 +102,10 @@ class ListenerCardSkeleton extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Expanded(
+                    Flexible(
                       child: Container(
-                        height: 12,
+                        height: isSmallScreen ? 10 : 12,
+                        constraints: const BoxConstraints(maxWidth: 120),
                         decoration: BoxDecoration(
                           color: fill,
                           borderRadius: BorderRadius.circular(6),
@@ -96,44 +114,64 @@ class ListenerCardSkeleton extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: spacing + 2),
+                
+                // Tags/pills - responsive widths
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: spacing,
+                  runSpacing: spacing,
                   children: [
-                    _pill(fill, width: 90, height: 24),
-                    _pill(fill, width: 60, height: 24),
-                    _pill(fill, width: 72, height: 24),
+                    _flexiblePill(fill, flex: 3, height: isSmallScreen ? 20 : 24),
+                    _flexiblePill(fill, flex: 2, height: isSmallScreen ? 20 : 24),
+                    _flexiblePill(fill, flex: 2, height: isSmallScreen ? 20 : 24),
                   ],
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: spacing + 2),
+                
+                // Bottom info row
                 Row(
                   children: [
-                    _pill(fill, width: 60, height: 22),
-                    const SizedBox(width: 8),
-                    Row(
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: fill,
-                            borderRadius: BorderRadius.circular(6),
+                    Flexible(
+                      child: _flexiblePill(fill, flex: 2, height: isSmallScreen ? 20 : 22),
+                    ),
+                    SizedBox(width: spacing),
+                    Flexible(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: isSmallScreen ? 16 : 20,
+                            height: isSmallScreen ? 16 : 20,
+                            decoration: BoxDecoration(
+                              color: fill,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        _pill(fill, width: 50, height: 22),
-                      ],
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Container(
+                              height: isSmallScreen ? 20 : 22,
+                              constraints: const BoxConstraints(maxWidth: 60),
+                              decoration: BoxDecoration(
+                                color: fill,
+                                borderRadius: BorderRadius.circular(11),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: spacing),
+          
+          // Call button
           Container(
-            width: 110,
-            height: 38,
+            width: buttonWidth,
+            height: isSmallScreen ? 34 : 38,
             decoration: BoxDecoration(
               color: fill,
               borderRadius: BorderRadius.circular(24),
@@ -144,13 +182,19 @@ class ListenerCardSkeleton extends StatelessWidget {
     );
   }
 
-  Widget _pill(Color color, {required double width, required double height}) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(height / 2),
+  Widget _flexiblePill(Color color, {required int flex, required double height}) {
+    return FractionallySizedBox(
+      widthFactor: flex / 10,
+      child: Container(
+        height: height,
+        constraints: BoxConstraints(
+          minWidth: height * 2,
+          maxWidth: flex == 3 ? 90 : (flex == 2 ? 60 : 50),
+        ),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(height / 2),
+        ),
       ),
     );
   }

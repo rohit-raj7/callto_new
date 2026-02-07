@@ -65,21 +65,12 @@ class IncomingCallOverlayService {
   }
   
   void _handleIncomingCall(IncomingCall call) {
-    // Block all incoming calls and overlays if listener is offline
-    if (!SocketService().listenerOnline) {
-      print('Listener is offline, ignoring incoming call and overlay.');
-      _removeOverlay();
-      _incomingCalls.clear();
+    
+    if (!_incomingCalls.any((c) => c.callId == call.callId)) {
+      _incomingCalls.add(call);
       _callsController.add(List.from(_incomingCalls));
-      return;
+      print('IncomingCallOverlayService: Added call ${call.callId} to list (${_incomingCalls.length} active)');
     }
-    
-    // NOTE: As of the new architecture, main.dart handles showing incoming call dialogs globally.
-    // This service no longer adds calls to the list to avoid duplicate UIs.
-    // The list functionality is kept for potential future use (e.g., call queue).
-    
-    // Overlay disabled - calls shown only via main.dart global dialog
-    // _showIncomingCallOverlay(call);
   }
 
   /// Call this when listener goes offline to clear overlays and calls
@@ -147,20 +138,11 @@ class IncomingCallOverlayService {
     _incomingCalls.removeWhere((c) => c.callId == call.callId);
     _callsController.add(List.from(_incomingCalls));
 
-    // Update call status to ongoing
-    final callService = CallService();
-    await callService.updateCallStatus(
-      callId: call.callId,
-      status: 'ongoing',
-    );
-
-    // Notify socket that call is accepted
-    _socketService.acceptCall(
-      callId: call.callId,
-      callerId: call.callerId,
-    );
-
-    // Navigate to calling screen
+    // ── FIX: Navigate IMMEDIATELY to prevent the 1-second flicker ──
+    // Previously, `await callService.updateCallStatus(...)` ran BEFORE
+    // navigation, so the underlying page was visible for ~1 s between
+    // overlay removal and Calling screen push. Now we navigate first
+    // and fire the API call + socket emit in the background.
     if (_context != null) {
       Navigator.of(_context!).push(
         MaterialPageRoute(
@@ -174,6 +156,16 @@ class IncomingCallOverlayService {
         ),
       );
     }
+
+    // Fire-and-forget: update backend status + notify peer
+    _socketService.acceptCall(
+      callId: call.callId,
+      callerId: call.callerId,
+    );
+    CallService().updateCallStatus(
+      callId: call.callId,
+      status: 'ongoing',
+    );
   }
 
   void _rejectCall(IncomingCall call) async {

@@ -4,6 +4,7 @@ import '../screens/chat_screen.dart';
 import '../screens/recents_screen.dart';
 import '../../services/incoming_call_overlay_service.dart';
 import '../../services/socket_service.dart';
+import '../../main.dart' show ensureGlobalCallHandler;
 
 class BottomNavBar extends StatefulWidget {
   const BottomNavBar({super.key});
@@ -41,6 +42,11 @@ class _BottomNavBarState extends State<BottomNavBar> {
     // CRITICAL: Ensure listener is marked online when using the app
     // This call emits listener:join to backend, marking listener as available for calls
     await _socketService.setListenerOnline(true);
+    
+    // Ensure the global incoming call subscription in main.dart is active.
+    // At app startup _initializeGlobalCallHandler may have skipped because
+    // isListener was false (first login). This re-triggers it.
+    ensureGlobalCallHandler();
     
     print('[LISTENER NAV] Listener services initialized, marked as online');
   }

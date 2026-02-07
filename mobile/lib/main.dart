@@ -16,6 +16,13 @@ import 'listener/actions/calling.dart';
 /// Global navigator key for showing incoming call overlay anywhere in the app
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+/// Call from listener BottomNavBar (or anywhere) to ensure the global
+/// incoming-call subscription is active. Needed because at app startup
+/// the user might not have been identified as a listener yet.
+void ensureGlobalCallHandler() {
+  _ConnectoAppState._instance?._initializeGlobalCallHandler();
+}
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const ConnectoApp());
@@ -42,9 +49,13 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
   bool _isShowingIncomingCall = false;
   String? _currentlyShowingCallId; // Track which call dialog is showing
 
+  /// Singleton reference so ensureGlobalCallHandler() can reach this state.
+  static _ConnectoAppState? _instance;
+
   @override
   void initState() {
     super.initState();
+    _instance = this;
     WidgetsBinding.instance.addObserver(this);
     // Initialize global incoming call listener after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -53,11 +64,19 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
     });
   }
 
-  /// Initialize global incoming call handler for listeners
-  /// This ensures incoming calls work on ALL pages, not just home screen
+  /// Initialize global incoming call handler for listeners.
+  /// Safe to call multiple times — cancels previous subscription first.
+  /// Called from initState AND from BottomNavBar when entering listener mode,
+  /// to ensure the subscription exists even if isListener was false at startup.
   Future<void> _initializeGlobalCallHandler() async {
     final isListener = await _storageService.getIsListener();
     if (!isListener) return;
+    
+    // Avoid duplicate subscription
+    if (_incomingCallSubscription != null) {
+      print('[MAIN] Global incoming call handler already active');
+      return;
+    }
     
     print('[MAIN] Setting up global incoming call handler for listener');
     
@@ -107,11 +126,11 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
       return;
     }
     
-    // Check if listener is online
-    if (!_socketService.listenerOnline) {
-      print('[MAIN] Listener is offline, ignoring incoming call');
-      return;
-    }
+    // NOTE: We no longer gate on _socketService.listenerOnline here.
+    // If the backend sent us an incoming-call socket event, the backend
+    // already verified the listener is online (in listenerSockets map).
+    // The old client-side check caused false negatives on Android where
+    // listenerOnline was still false due to connect() timing issues.
     
     _isShowingIncomingCall = true;
     _currentlyShowingCallId = call.callId;
@@ -144,13 +163,12 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
     try {
       // Remove from overlay service list (in case it's also shown there)
       _overlayService.removeCallFromList(call.callId);
-      
-      final callService = CallService();
-      await callService.updateCallStatus(callId: call.callId, status: 'ongoing');
-      
-      _socketService.acceptCall(callId: call.callId, callerId: call.callerId);
-      
-      // Navigate to calling screen using global navigator
+
+      // ── FIX: Navigate IMMEDIATELY to prevent the 1-second flicker ──
+      // Previously, `await callService.updateCallStatus(...)` ran BEFORE
+      // navigation, so the home screen was visible for ~1 s between
+      // dialog dismiss and Calling screen push. Now we navigate first
+      // and fire the API call + socket emit in the background.
       navigatorKey.currentState?.push(
         MaterialPageRoute(
           builder: (_) => Calling(
@@ -162,6 +180,10 @@ class _ConnectoAppState extends State<ConnectoApp> with WidgetsBindingObserver {
           ),
         ),
       );
+
+      // Fire-and-forget: update backend status + notify peer
+      _socketService.acceptCall(callId: call.callId, callerId: call.callerId);
+      CallService().updateCallStatus(callId: call.callId, status: 'ongoing');
     } catch (e) {
       print('[MAIN] Error accepting call: $e');
     }

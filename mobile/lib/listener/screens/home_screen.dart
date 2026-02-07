@@ -206,23 +206,14 @@ class _HomeScreenState extends State<HomeScreen>
     if (!mounted) return;
     
     try {
-      // Update call status to ongoing
-      final callService = CallService();
-      await callService.updateCallStatus(
-        callId: call.callId,
-        status: 'ongoing',
-      );
-      
-      // Notify socket that call is accepted
-      SocketService().acceptCall(
-        callId: call.callId,
-        callerId: call.callerId,
-      );
-      
       // Remove from incoming calls list
       _overlayService.removeCallFromList(call.callId);
-      
-      // Navigate to Calling screen
+
+      // ── FIX: Navigate IMMEDIATELY to prevent the 1-second flicker ──
+      // Previously, `await callService.updateCallStatus(...)` ran BEFORE
+      // navigation, so the home screen was visible for ~1 s between
+      // tapping Accept and seeing the Calling screen. Now we navigate
+      // first and fire the API call + socket emit in the background.
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -234,6 +225,16 @@ class _HomeScreenState extends State<HomeScreen>
             callerId: call.callerId,
           ),
         ),
+      );
+
+      // Fire-and-forget: update backend status + notify peer
+      SocketService().acceptCall(
+        callId: call.callId,
+        callerId: call.callerId,
+      );
+      CallService().updateCallStatus(
+        callId: call.callId,
+        status: 'ongoing',
       );
     } catch (e) {
       print('Error accepting call: $e');

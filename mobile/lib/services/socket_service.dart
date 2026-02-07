@@ -261,6 +261,7 @@ class SocketService {
 
     _socket!.onConnect((_) {
       _isConnected = true;
+      _connecting = false;
       _log('Socket connected: id=${_socket!.id}');
       _connectionState.add(true);
       
@@ -297,6 +298,7 @@ class SocketService {
 
     _socket!.onConnectError((err) {
       _isConnected = false;
+      _connecting = false;
       _log('Socket connect error: $err');
       _connectionState.add(false);
       if (_connectionCompleter != null && !_connectionCompleter!.isCompleted) {
@@ -462,8 +464,21 @@ class SocketService {
     });
 
     _socket!.connect();
-    _connecting = false;
-    return true;
+    // Wait for actual connection (with timeout) instead of returning true immediately.
+    // On Android the TCP handshake takes real time; returning early caused
+    // setListenerOnline to check _socket.connected before it was true,
+    // so listener:join was never emitted and incoming calls were lost.
+    return _connectionCompleter!.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        _log('Socket connect timed out');
+        _connecting = false;
+        if (_connectionCompleter != null && !_connectionCompleter!.isCompleted) {
+          _connectionCompleter!.complete(false);
+        }
+        return false;
+      },
+    );
   }
 
   /// Connect to the socket server ONCE and setup listeners (Alias for connect for compatibility)

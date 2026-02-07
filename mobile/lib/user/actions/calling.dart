@@ -1,17 +1,23 @@
-import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'call_controller.dart';
+import 'audio_device_manager.dart';
+import 'call_action_button.dart';
+import 'audio_route_bottom_sheet.dart';
 
-import '../../services/audio_route_service.dart';
-import '../../services/agora_service.dart';
-import '../../services/socket_service.dart';
-import '../../services/call_service.dart';
-
-// Agora App ID - loaded from backend via token request
-const String _agoraAppId = '3ce923c6b5cb422bae0674cc9ddf11f0';
-
+/// ──────────────────────────────────────────────────────────────────
+/// User-side calling screen — professional mobile call UI.
+///
+/// Key improvements:
+///  • Single UserCallState enum as source of truth (no multi-flag toggling).
+///  • UserCallController owns all logic; widget only renders.
+///  • One subscription per socket event (no duplicates).
+///  • mounted-safe rebuilds via ChangeNotifier (no setState after dispose).
+///  • Forward-only state transitions prevent UI glitches after pickup.
+///  • Audio route detection with bottom sheet selector.
+///  • Material 3 styled action buttons with ripple (always responsive).
+///  • Bluetooth / headphone detection shown in UI automatically.
+/// ──────────────────────────────────────────────────────────────────
 class Calling extends StatefulWidget {
   final String callerName;
   final String callerAvatar;
@@ -19,7 +25,7 @@ class Calling extends StatefulWidget {
   final String? userAvatar;
   final String? channelName;
   final String? listenerId;
-  final String? listenerDbId; // The listener_id for database calls
+  final String? listenerDbId;
   final String? topic;
   final String? language;
   final String? gender;
@@ -42,556 +48,389 @@ class Calling extends StatefulWidget {
   State<Calling> createState() => _CallingState();
 }
 
-class _CallingState extends State<Calling> with WidgetsBindingObserver, TickerProviderStateMixin {
-  late AudioPlayer _audioPlayer;
-  late AnimationController _pulseController;
-
-  late final AudioRouteService _audioRoute;
-  final AgoraService _agoraService = AgoraService();
-  final SocketService _socketService = SocketService();
-  final CallService _callService = CallService();
-  StreamSubscription? _callConnectedSubscription;
-  StreamSubscription? _callEndedSubscription;
-  StreamSubscription? _callRejectedSubscription;
-  
-  bool _isCallConnected = false;
-  int _callDuration = 0;
-  Timer? _callTimer;
-  bool _isMuted = false;
-  bool _hasStartedAudio = false;
-  String? _connectionError;
-  String? _currentChannelName;
-  bool _isCallEnding = false; // Prevent multiple end call triggers
-  String? _callId; // Store the call ID from database
-  bool _isCallInitiating = true; // Track call initiation status
+class _CallingState extends State<Calling>
+    with WidgetsBindingObserver, TickerProviderStateMixin {
+  late final UserCallController _controller;
+  late final AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    _audioRoute = AudioRouteService();
-    _audioRoute.state.addListener(_onAudioRouteChanged);
+    _controller = UserCallController(
+      callerName: widget.callerName,
+      callerAvatar: widget.callerAvatar,
+      userName: widget.userName,
+      userAvatar: widget.userAvatar,
+      channelName: widget.channelName,
+      listenerId: widget.listenerId,
+      listenerDbId: widget.listenerDbId,
+      topic: widget.topic,
+      language: widget.language,
+      gender: widget.gender,
+    );
 
-    _audioPlayer = AudioPlayer();
+    _controller.addListener(_onControllerChanged);
+    _controller.audioDeviceManager.addListener(_onAudioChanged);
+
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
 
-    // Setup socket listeners for call events
-    _setupSocketListeners();
-    
-    _initAudio();
-    
-    // If channelName is provided, call was already created (backward compatibility)
-    // Otherwise, create the call first, then init Agora
-    if (widget.channelName != null) {
-      _callId = widget.channelName;
-      _isCallInitiating = false;
-      _initAgora();
-    } else {
-      _initiateCallAndConnect();
-    }
+    _controller.initialize();
   }
 
-  /// Create call in database and emit socket event, then init Agora
-  Future<void> _initiateCallAndConnect() async {
-    print('User: Initiating call to listener...');
-    
-    // Connect to socket first
-    final connected = await _socketService.connect();
-    if (!connected) {
-      if (mounted) {
-        setState(() {
-          _connectionError = 'Failed to connect. Please try again.';
-          _isCallInitiating = false;
-        });
-      }
-      return;
-    }
+  void _onControllerChanged() {
+    if (!mounted) return;
 
-    // Create call in database
-    final callResult = await _callService.initiateCall(
-      listenerId: widget.listenerDbId ?? widget.listenerId ?? '',
-      callType: 'audio',
-    );
-
-    if (!callResult.success) {
-      if (mounted) {
-        setState(() {
-          _connectionError = callResult.error ?? 'Failed to initiate call';
-          _isCallInitiating = false;
-        });
-        _stopRingtone();
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) Navigator.pop(context);
-        });
-      }
-      return;
-    }
-
-    _callId = callResult.call!.callId;
-    print('User: Call created with ID: $_callId');
-
-    // Emit socket event to notify listener
-    final targetUserId = widget.listenerId;
-    if (targetUserId != null && _callId != null) {
-      print('User: Emitting call initiation to listener: $targetUserId, callerAvatar: ${widget.userAvatar}');
-      _socketService.initiateCall(
-        callId: _callId!,
-        listenerId: targetUserId,
-        callerName: widget.userName,
-        callerAvatar: widget.userAvatar,
-        topic: widget.topic ?? 'General',
-        language: widget.language ?? 'English',
-        gender: widget.gender,
-      );
-    }
-
-    if (mounted) {
-      setState(() {
-        _isCallInitiating = false;
+    if (_controller.callState == UserCallState.ended) {
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (mounted) Navigator.pop(context);
       });
     }
 
-    // Now initialize Agora with the call ID
-    _initAgora();
+    setState(() {});
   }
 
-  void _setupSocketListeners() {
-    // Listen for call connected (both parties joined)
-    _callConnectedSubscription = _socketService.onCallConnected.listen((data) {
-      print('User: Received call:connected event');
-      if (mounted && !_isCallConnected) {
-        _onCallConnected();
-      }
-    });
-
-    // Listen for call ended (from socket or peer disconnect)
-    _callEndedSubscription = _socketService.onCallEnded.listen((data) {
-      print('User: Call ended by listener - ${data['reason'] ?? 'unknown'}');
-      if (mounted) {
-        // Check if it's a call error (listener offline)
-        if (data['code'] == 'LISTENER_OFFLINE') {
-          setState(() {
-            _connectionError = data['error'] ?? 'Listener is offline';
-          });
-          _stopRingtone();
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) _endCall();
-          });
-        } else {
-          _endCall();
-        }
-      }
-    });
-
-    // Listen for call rejected
-    _callRejectedSubscription = _socketService.onCallRejected.listen((data) {
-      print('User: Call rejected by listener');
-      if (mounted) {
-        setState(() {
-          _connectionError = 'Call was declined';
-        });
-        _stopRingtone();
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) _endCall();
-        });
-      }
-    });
-
-  }
-
-  void _onCallConnected() {
-    print('User: Call is now connected!');
-    _stopRingtone();
-    setState(() {
-      _isCallConnected = true;
-    });
-    _startCallTimer();
-  }
-
-  void _onAudioRouteChanged() {
+  void _onAudioChanged() {
     if (mounted) setState(() {});
-  }
-
-  Future<void> _initAudio() async {
-    if (_hasStartedAudio) return;
-    _hasStartedAudio = true;
-
-    await _audioRoute.start();
-    await _playRingtone();
-  }
-
-  /// Initialize Agora RTC
-  Future<void> _initAgora() async {
-    // Request microphone permission
-    final status = await Permission.microphone.request();
-    if (!status.isGranted) {
-      setState(() {
-        _connectionError = 'Microphone permission denied';
-      });
-      return;
-    }
-
-    // Use callId from database, or widget.channelName for backward compatibility
-    final channelName = _callId ?? widget.channelName ?? 
-        'call_${widget.listenerId ?? DateTime.now().millisecondsSinceEpoch}';
-    _currentChannelName = channelName;
-    
-    print('User: Joining Agora channel: $channelName');
-
-    // Fetch token from backend
-    final tokenResult = await _agoraService.fetchToken(channelName: channelName);
-    
-    if (!tokenResult.success || tokenResult.token == null) {
-      setState(() {
-        _connectionError = tokenResult.error ?? 'Failed to get call token';
-      });
-      _stopRingtone();
-      // Navigate back after showing error
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) Navigator.pop(context);
-      });
-      return;
-    }
-    
-    print('User: Got token, UID: ${tokenResult.uid}');
-
-    // Initialize Agora engine
-    final initialized = await _agoraService.initEngine(appId: _agoraAppId);
-    if (!initialized) {
-      setState(() {
-        _connectionError = 'Failed to initialize call engine';
-      });
-      _stopRingtone();
-      return;
-    }
-
-    // Register event handlers
-    _agoraService.registerEventHandler(RtcEngineEventHandler(
-      onJoinChannelSuccess: (connection, elapsed) {
-        print('User: Joined channel successfully: ${connection.channelId}');
-        // Notify server that we joined the call
-        _socketService.emitCallJoined(
-          callId: channelName,
-          otherUserId: widget.listenerId,
-        );
-      },
-      onUserJoined: (connection, remoteUid, elapsed) {
-        print('User: Listener joined the call! UID: $remoteUid');
-        _stopRingtone();
-        setState(() {
-          _isCallConnected = true;
-        });
-        _startCallTimer();
-      },
-      onUserOffline: (connection, remoteUid, reason) {
-        print('User: Listener left: $remoteUid, reason: $reason');
-        // End call when remote user leaves
-        if (mounted) {
-          _endCall();
-        }
-      },
-      onError: (err, msg) {
-        print('User: Agora error: $err - $msg');
-        // Only show error if not already connected (avoid spurious errors)
-        if (!_isCallConnected && mounted) {
-          setState(() {
-            _connectionError = 'Call error: $msg';
-          });
-        }
-      },
-      onConnectionStateChanged: (connection, state, reason) {
-        print('User: Connection state: $state, reason: $reason');
-        if (state == ConnectionStateType.connectionStateFailed) {
-          // Provide more context based on the reason
-          String errorMsg = 'Connection failed';
-          if (reason == ConnectionChangedReasonType.connectionChangedTokenExpired) {
-            errorMsg = 'Call session expired. Please try again.';
-          } else if (reason == ConnectionChangedReasonType.connectionChangedRejectedByServer) {
-            errorMsg = 'Connection rejected. Please try again.';
-          } else if (reason == ConnectionChangedReasonType.connectionChangedInvalidToken) {
-            errorMsg = 'Invalid call token. Please try again.';
-          }
-          if (mounted) {
-            setState(() {
-              _connectionError = errorMsg;
-            });
-          }
-          _endCall();
-        } else if (state == ConnectionStateType.connectionStateReconnecting) {
-          print('User: Reconnecting...');
-        }
-      },
-    ));
-
-    // Join channel
-    final joined = await _agoraService.joinChannel(
-      token: tokenResult.token!,
-      channelName: channelName,
-      uid: tokenResult.uid ?? 0,
-    );
-
-    if (!joined) {
-      setState(() {
-        _connectionError = 'Failed to join call';
-      });
-      _stopRingtone();
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) Navigator.pop(context);
-      });
-    } else {
-      print('User: Join channel request sent, waiting for listener to accept...');
-      _currentChannelName = channelName;
-      
-      // Emit socket event that we joined the channel (for web simulation)
-      _socketService.joinedChannel(
-        callId: channelName,
-        channelName: channelName,
-      );
-      
-      // Set timeout for no answer (45 seconds)
-      Future.delayed(const Duration(seconds: 45), () {
-        if (mounted && !_isCallConnected && !_isCallEnding) {
-          setState(() {
-            _connectionError = 'No answer';
-          });
-          _stopRingtone();
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) _endCall();
-          });
-        }
-      });
-    }
-  }
-
-  void _startCallTimer() {
-    _callTimer?.cancel();
-    _callTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() => _callDuration++);
-      }
-    });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Handle app lifecycle changes
-    if (state == AppLifecycleState.paused) {
-      // App went to background
-      _audioPlayer.pause();
-      // Don't end call on background - user might return
-    } else if (state == AppLifecycleState.resumed && !_isCallConnected) {
-      _audioPlayer.resume();
-    } else if (state == AppLifecycleState.detached) {
-      // App is being closed - end call properly
-      print('User: App detached, ending call');
-      _endCall();
+    if (state == AppLifecycleState.detached) {
+      _controller.endCall();
     }
   }
 
-  Future<void> _playRingtone() async {
-    await _audioPlayer.setReleaseMode(ReleaseMode.loop);
-    await _audioPlayer.play(AssetSource('voice/sample.mp3'));
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _controller.audioDeviceManager.removeListener(_onAudioChanged);
+    _controller.removeListener(_onControllerChanged);
+    _controller.dispose();
+    _pulseController.dispose();
+    super.dispose();
   }
 
-  void _stopRingtone() {
-    _audioPlayer.stop();
-  }
+  // ── Avatar helper ──
 
-  String _formatDuration(int seconds) {
-    final mins = (seconds ~/ 60).toString().padLeft(2, '0');
-    final secs = (seconds % 60).toString().padLeft(2, '0');
-    return '$mins:$secs';
-  }
-
-  void _toggleMute() {
-    setState(() => _isMuted = !_isMuted);
-    _agoraService.muteLocalAudio(_isMuted);
-  }
-
-  Future<void> _toggleAudioOutput() async {
-    await _audioRoute.cycleUserMode();
-    // Also update Agora speaker setting
-    final isSpeaker = _activeAudioMode == AudioMode.speaker;
-    await _agoraService.setEnableSpeakerphone(isSpeaker);
-  }
-
-  void _endCall() async {
-    // Prevent multiple end call triggers
-    if (_isCallEnding) return;
-    _isCallEnding = true;
-    
-    print('User: Ending call...');
-    
-    _stopRingtone();
-    _callTimer?.cancel();
-    
-    // Update call status to completed with duration
-    if (_currentChannelName != null) {
-      final callService = CallService();
-      final status = _isCallConnected ? 'completed' : 'cancelled';
-      final duration = _isCallConnected ? _callDuration : null;
-      
-      await callService.updateCallStatus(
-        callId: _currentChannelName!,
-        status: status,
-        durationSeconds: duration,
-      );
+  ImageProvider? _getAvatarImage(String? url) {
+    if (url == null || url.isEmpty) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return NetworkImage(url);
     }
-    
-    // Leave channel and reset Agora service (allows reuse)
-    await _agoraService.reset();
-    
-    // Notify the listener that call has ended
-    if (widget.listenerId != null && _currentChannelName != null) {
-      _socketService.endCall(
-        callId: _currentChannelName!,
-        otherUserId: widget.listenerId!,
-      );
-    }
-    
-    // Notify socket that we left the channel
-    if (_currentChannelName != null) {
-      _socketService.leftChannel(channelName: _currentChannelName!);
-    }
-    
-    if (mounted) {
-      Navigator.pop(context);
-    }
+    if (url.startsWith('assets/')) return AssetImage(url);
+    return null;
   }
 
-  AudioMode get _activeAudioMode => _audioRoute.state.value.effectiveMode;
+  // ── Audio route icon ──
 
-  /// Icon for active audio mode
-  IconData _getDeviceIcon() {
-    switch (_activeAudioMode) {
-      case AudioMode.bluetooth:
-        return Icons.bluetooth_audio;
-      case AudioMode.headset:
-        return Icons.headset;
-      case AudioMode.speaker:
+  IconData _audioRouteIcon(UserAudioRoute route) {
+    switch (route) {
+      case UserAudioRoute.earpiece:
+        return Icons.phone_in_talk;
+      case UserAudioRoute.speaker:
         return Icons.volume_up;
+      case UserAudioRoute.bluetooth:
+        return Icons.bluetooth_audio;
+      case UserAudioRoute.wiredHeadset:
+        return Icons.headset;
     }
   }
 
-  /// Status text for active audio mode
-  String _getDeviceStatusText() {
-    switch (_activeAudioMode) {
-      case AudioMode.bluetooth:
-        return 'Bluetooth Connected';
-      case AudioMode.headset:
-        return 'Using Headphones';
-      case AudioMode.speaker:
-        return 'Using Speaker';
-    }
-  }
+  // ══════════════════════════════════════════════════════════════
+  //  BUILD
+  // ══════════════════════════════════════════════════════════════
 
-  /// Label for the toggle button
-  String _getAudioButtonLabel() {
-    switch (_activeAudioMode) {
-      case AudioMode.bluetooth:
-        return 'Bluetooth';
-      case AudioMode.headset:
-        return 'Headset';
-      case AudioMode.speaker:
-        return 'Speaker';
-    }
-  }
+  @override
+  Widget build(BuildContext context) {
+    final Color primary = Theme.of(context).colorScheme.primary;
+    final Color errorColor = Theme.of(context).colorScheme.error;
+    const Color bgTop = Color(0xFF0A0E21);
+    const Color bgBottom = Color(0xFF0D1B2A);
 
-  /// Color for active audio mode
-  Color _getDeviceColor() {
-    switch (_activeAudioMode) {
-      case AudioMode.bluetooth:
-        return Colors.blueAccent;
-      case AudioMode.headset:
-        return Colors.greenAccent;
-      case AudioMode.speaker:
-        return Colors.white70;
-    }
-  }
+    final callState = _controller.callState;
+    final isConnected = callState == UserCallState.connected;
+    final isEnded = callState == UserCallState.ended;
+    final audioMgr = _controller.audioDeviceManager;
 
-  Widget _buildAvatarImage(String? imagePath, Color fallbackColor, double radius) {
-    if (imagePath == null || imagePath.isEmpty) {
-      return _buildFallbackAvatar(fallbackColor, radius);
-    }
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [bgTop, primary.withOpacity(0.06), bgBottom],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // ── Top bar ──
+              _buildTopBar(primary, audioMgr),
 
-    if (imagePath.startsWith('http')) {
-      return Image.network(
-        imagePath,
-        fit: BoxFit.cover,
-        width: radius * 2,
-        height: radius * 2,
-        errorBuilder: (_, __, ___) => _buildFallbackAvatar(fallbackColor, radius),
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return _buildFallbackAvatar(fallbackColor, radius);
-        },
-      );
-    }
+              const Spacer(flex: 3),
 
-    return Image.asset(
-      imagePath,
-      fit: BoxFit.cover,
-      width: radius * 2,
-      height: radius * 2,
-      errorBuilder: (_, __, ___) => _buildFallbackAvatar(fallbackColor, radius),
-    );
-  }
+              // ── Brand Name ──
+              _buildBrandName(primary, errorColor),
 
-  Widget _buildFallbackAvatar(Color color, double radius) {
-    return Container(
-      color: color,
-      child: Icon(
-        Icons.person,
-        size: radius,
-        color: Colors.white70,
+              const SizedBox(height: 14),
+
+              // ── Status indicator ──
+              _buildStatusIndicator(primary, callState),
+
+              if (_controller.connectionError != null &&
+                  callState != UserCallState.connected) ...[
+                const SizedBox(height: 16),
+                _buildErrorBanner(),
+              ],
+
+              const Spacer(flex: 2),
+
+              // ── Avatar row ──
+              _buildAvatarRow(primary, isConnected),
+
+              const Spacer(flex: 4),
+
+              // ── Bottom action bar (always visible, always tappable) ──
+              _buildActionBar(primary, isEnded, audioMgr),
+
+              const SizedBox(height: 28),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  /// Build control button
-  Widget _buildControlButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-    bool isActive = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+  // ── Top bar with audio device chip ──
+
+  Widget _buildTopBar(Color primary, UserAudioDeviceManager audioMgr) {
+    final route = audioMgr.currentRoute;
+    final Color chipColor = _chipColorFor(route);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
         children: [
           Container(
-            width: 56, // Reduced from 68
-            height: 56, // Reduced from 68
             decoration: BoxDecoration(
-              color: isActive ? color : const Color(0xFF2A2A3E),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              color: Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 30,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new,
+                  color: Colors.white, size: 20),
+              onPressed: () => _controller.endCall(),
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+          const Spacer(),
+          // Audio device chip — auto updates icon on device change
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, animation) =>
+                ScaleTransition(scale: animation, child: child),
+            child: GestureDetector(
+              key: ValueKey(route),
+              onTap: () =>
+                  UserAudioRouteBottomSheet.show(context, audioMgr),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: chipColor.withOpacity(0.25)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(_audioRouteIcon(route),
+                        color: chipColor, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      _chipTextFor(route),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: chipColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const Spacer(),
+          const SizedBox(width: 48),
+        ],
+      ),
+    );
+  }
+
+  String _chipTextFor(UserAudioRoute route) {
+    switch (route) {
+      case UserAudioRoute.bluetooth:
+        return 'Bluetooth Connected';
+      case UserAudioRoute.wiredHeadset:
+        return 'Using Headphones';
+      case UserAudioRoute.speaker:
+        return 'Using Speaker';
+      case UserAudioRoute.earpiece:
+        return 'Earpiece';
+    }
+  }
+
+  Color _chipColorFor(UserAudioRoute route) {
+    switch (route) {
+      case UserAudioRoute.bluetooth:
+        return Colors.blueAccent;
+      case UserAudioRoute.wiredHeadset:
+        return Colors.greenAccent;
+      case UserAudioRoute.speaker:
+        return Colors.white70;
+      case UserAudioRoute.earpiece:
+        return Colors.white70;
+    }
+  }
+
+  // ── Brand name ──
+
+  Widget _buildBrandName(Color primary, Color errorColor) {
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(
+          fontSize: 38,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'Cursive',
+        ),
+        children: [
+          TextSpan(
+            text: 'Ca',
+            style: TextStyle(color: primary, fontStyle: FontStyle.italic),
+          ),
+          const TextSpan(text: 'll', style: TextStyle(color: Colors.white)),
+          TextSpan(text: 'to', style: TextStyle(color: errorColor)),
+        ],
+      ),
+    );
+  }
+
+  // ── Status indicator ──
+
+  Widget _buildStatusIndicator(Color primary, UserCallState state) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      transitionBuilder: (child, animation) =>
+          FadeTransition(opacity: animation, child: child),
+      child: _statusContent(primary, state),
+    );
+  }
+
+  Widget _statusContent(Color primary, UserCallState state) {
+    switch (state) {
+      case UserCallState.calling:
+      case UserCallState.connecting:
+        final hasError = _controller.connectionError != null;
+        return Row(
+          key: const ValueKey('connecting'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!hasError)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.greenAccent),
+                  strokeWidth: 2.5,
+                ),
+              )
+            else
+              Icon(Icons.error_outline,
+                  color: Theme.of(context).colorScheme.error, size: 20),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                _controller.statusText,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: hasError
+                      ? Theme.of(context).colorScheme.error
+                      : Colors.greenAccent,
+                ),
+              ),
+            ),
+          ],
+        );
+
+      case UserCallState.connected:
+        return Row(
+          key: const ValueKey('connected'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: Colors.green,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.5),
+                    blurRadius: 6,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              _controller.formattedDuration,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Colors.green,
+                letterSpacing: 1,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        );
+
+      case UserCallState.ended:
+        return const Text(
+          key: ValueKey('ended'),
+          'Call Ended',
+          style: TextStyle(fontSize: 16, color: Colors.white54),
+        );
+    }
+  }
+
+  // ── Error banner ──
+
+  Widget _buildErrorBanner() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              _controller.connectionError!,
+              style: const TextStyle(color: Colors.redAccent, fontSize: 13),
             ),
           ),
         ],
@@ -599,498 +438,221 @@ class _CallingState extends State<Calling> with WidgetsBindingObserver, TickerPr
     );
   }
 
-  @override
-  void dispose() {
-    // Cancel all socket subscriptions
-    _callConnectedSubscription?.cancel();
-    _callEndedSubscription?.cancel();
-    _callRejectedSubscription?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
-    _audioPlayer.stop();
-    _audioPlayer.dispose();
-    _pulseController.dispose();
-    _audioRoute.state.removeListener(_onAudioRouteChanged);
-    _audioRoute.dispose();
-    _callTimer?.cancel();
-    
-    // Clean up media resources
-    _agoraService.dispose();
-    
-    // Notify server we left the channel
-    if (_currentChannelName != null) {
-      _socketService.leftChannel(channelName: _currentChannelName!);
-    }
-    super.dispose();
+  // ── Avatar row ──
+
+  Widget _buildAvatarRow(Color primary, bool isConnected) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          // Left – Listener
+          Expanded(child: _buildAvatarCard(
+            widget.callerAvatar,
+            widget.callerName,
+            primary,
+            isConnected,
+          )),
+
+          // Center – animated call icon
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: _buildCallIconCenter(primary, isConnected),
+          ),
+
+          // Right – Current user
+          Expanded(child: _buildAvatarCard(
+            widget.userAvatar,
+            widget.userName,
+            primary,
+            isConnected,
+          )),
+        ],
+      ),
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    const Color accentColor = Colors.pinkAccent;
-    const Color backgroundColor = Color(0xFF121220);
-    const Color cardColor = Color(0xFF1E1E2E);
+  Widget _buildAvatarCard(
+      String? imageUrl, String name, Color primary, bool isConnected) {
+    final avatarImage = _getAvatarImage(imageUrl);
+    final Color borderColor =
+        isConnected ? Colors.green.withOpacity(0.6) : primary.withOpacity(0.6);
 
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [backgroundColor, const Color(0xFF1A1A2E), const Color(0xFF16213E)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 100,
+          height: 100,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: borderColor, width: 3),
+            boxShadow: [
+              BoxShadow(
+                color: borderColor.withOpacity(0.25),
+                blurRadius: 20,
+                spreadRadius: 4,
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: avatarImage != null
+                ? Image(
+                    image: avatarImage,
+                    fit: BoxFit.cover,
+                    width: 100,
+                    height: 100,
+                    errorBuilder: (_, __, ___) => _fallbackAvatar(),
+                  )
+                : _fallbackAvatar(),
           ),
         ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight,
-                  ),
-                  child: IntrinsicHeight(
-                    child: Column(
-                      children: <Widget>[
-                        // Custom App Bar
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          child: Row(
-                            children: [
-                              // Back button
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-                                  onPressed: _endCall,
-                                ),
-                              ),
-                              const Expanded(
-                                child: Text(
-                                  "Call To",
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                              // Spacer to keep title centered (same width as back button area)
-                              const SizedBox(width: 48),
-                            ],
-                          ),
-                        ),
+        const SizedBox(height: 12),
+        Text(
+          name,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
 
-                        const SizedBox(height: 16),
+  Widget _fallbackAvatar() {
+    return Container(
+      color: const Color(0xFFB39DDB),
+      child: const Icon(Icons.person, size: 50, color: Colors.white70),
+    );
+  }
 
-                        // Audio device status chip
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          transitionBuilder: (child, animation) {
-                            return ScaleTransition(scale: animation, child: child);
-                          },
-                          child: Container(
-                            key: ValueKey(_activeAudioMode),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  _getDeviceColor().withOpacity(0.2),
-                                  _getDeviceColor().withOpacity(0.1),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(25),
-                              border: Border.all(color: _getDeviceColor().withOpacity(0.3)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(_getDeviceIcon(), color: _getDeviceColor(), size: 18),
-                                const SizedBox(width: 10),
-                                Text(
-                                  _getDeviceStatusText(),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: _getDeviceColor(),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+  Widget _buildCallIconCenter(Color primary, bool isConnected) {
+    if (isConnected) {
+      return Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.green.withOpacity(0.15),
+          border: Border.all(color: Colors.green.withOpacity(0.4), width: 2),
+        ),
+        child: const Icon(Icons.phone, color: Colors.green, size: 24),
+      );
+    }
 
-                        const Spacer(flex: 1),
-
-                        // Caller avatar section with enhanced design
-                        SizedBox(
-                          height: 180,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // Outer glow rings
-                              if (!_isCallConnected) ...[
-                                AnimatedBuilder(
-                                  animation: _pulseController,
-                                  builder: (context, child) {
-                                    return Container(
-                                      width: 140 + (30 * _pulseController.value),
-                                      height: 140 + (30 * _pulseController.value),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: accentColor.withOpacity(0.15 * (1 - _pulseController.value)),
-                                          width: 1,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                AnimatedBuilder(
-                                  animation: _pulseController,
-                                  builder: (context, child) {
-                                    return Container(
-                                      width: 110 + (20 * _pulseController.value),
-                                      height: 110 + (20 * _pulseController.value),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: accentColor.withOpacity(0.25 * (1 - _pulseController.value)),
-                                          width: 2,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                              // Connected state ring
-                              if (_isCallConnected)
-                                Container(
-                                  width: 130,
-                                  height: 130,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.green.withOpacity(0.3),
-                                        Colors.green.withOpacity(0.1),
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    border: Border.all(color: Colors.green.withOpacity(0.5), width: 3),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.green.withOpacity(0.3),
-                                        blurRadius: 25,
-                                        spreadRadius: 5,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              // Avatar with enhanced styling
-                              Container(
-                                width: 110,
-                                height: 110,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 4),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: accentColor.withOpacity(0.3),
-                                      blurRadius: 20,
-                                      spreadRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                                child: ClipOval(
-                                  child: _buildAvatarImage(widget.callerAvatar, const Color(0xFFB39DDB), 55),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Caller name with enhanced styling
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Text(
-                            widget.callerName,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 24, // Reduced from 28
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Call status with enhanced design
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          transitionBuilder: (child, animation) {
-                            return FadeTransition(
-                              opacity: animation,
-                              child: SlideTransition(
-                                position: Tween<Offset>(
-                                  begin: const Offset(0, 0.2),
-                                  end: Offset.zero,
-                                ).animate(animation),
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: _isCallConnected
-                              ? Container(
-                                  key: const ValueKey('connected'),
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.green.withOpacity(0.2),
-                                        Colors.green.withOpacity(0.1),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(30),
-                                    border: Border.all(color: Colors.green.withOpacity(0.3)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        width: 10,
-                                        height: 10,
-                                        decoration: BoxDecoration(
-                                          color: Colors.green,
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.green.withOpacity(0.5),
-                                              blurRadius: 6,
-                                              spreadRadius: 2,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Text(
-                                        _formatDuration(_callDuration),
-                                        style: const TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.green,
-                                          letterSpacing: 1,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : Container(
-                                  key: const ValueKey('connecting'),
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        (_connectionError != null ? Colors.red : accentColor).withOpacity(0.2),
-                                        (_connectionError != null ? Colors.red : accentColor).withOpacity(0.1),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(30),
-                                    border: Border.all(color: (_connectionError != null ? Colors.red : accentColor).withOpacity(0.3)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (_connectionError == null)
-                                        SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-                                            strokeWidth: 2.5,
-                                          ),
-                                        )
-                                      else
-                                        const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                                      const SizedBox(width: 14),
-                                      Flexible(
-                                        child: Text(
-                                          _connectionError ?? 'Connecting...',
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w600,
-                                            color: _connectionError != null ? Colors.red : accentColor,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                        ),
-
-                        const Spacer(flex: 1),
-
-                        // User section with card design
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 24),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: cardColor,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: Colors.white.withOpacity(0.1)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 15,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // User avatar with glow effect
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 3),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: (_isCallConnected ? Colors.green : accentColor).withOpacity(0.35),
-                                      blurRadius: 14,
-                                      spreadRadius: 2.5,
-                                    ),
-                                  ],
-                                ),
-                                child: ClipOval(
-                                  child: _buildAvatarImage(widget.userAvatar, const Color(0xFFB39DDB), 28),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              // User info
-                              Flexible(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      widget.userName,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      _isCallConnected ? 'In Call' : 'Calling...',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: _isCallConnected ? Colors.green : Colors.white54,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // Control buttons
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 16), // Reduced from 24
-                          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8), // Reduced horizontal from 16
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              _buildControlButton(
-                                icon: _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                                label: _isMuted ? 'Unmute' : 'Mute',
-                                color: _isMuted ? const Color(0xFFEF5350) : Colors.white70,
-                                onTap: _toggleMute,
-                                isActive: _isMuted,
-                              ),
-
-                              // End call button
-                              GestureDetector(
-                                onTap: _endCall,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 64, // Reduced from 72
-                                      height: 64, // Reduced from 72
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFEF5350),
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.3),
-                                            blurRadius: 10,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ],
-                                      ),
-                                      child: const Icon(
-                                        Icons.call_end_rounded,
-                                        color: Colors.white,
-                                        size: 32,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    const Text(
-                                      'End Call',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              _buildControlButton(
-                                icon: _getDeviceIcon(),
-                                label: _getAudioButtonLabel(),
-                                color: _getDeviceColor(),
-                                onTap: _toggleAudioOutput,
-                                isActive: _activeAudioMode != AudioMode.speaker,
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-                      ],
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...List.generate(
+          3,
+          (i) => AnimatedBuilder(
+            animation: _pulseController,
+            builder: (ctx, _) => Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: primary.withOpacity(
+                0.25 + 0.75 * ((_pulseController.value + i * 0.25) % 1.0),
+              ),
+            ),
+          ),
+        ),
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            AnimatedBuilder(
+              animation: _pulseController,
+              builder: (context, child) {
+                return Container(
+                  width: 52 + (12 * _pulseController.value),
+                  height: 52 + (12 * _pulseController.value),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: primary
+                          .withOpacity(0.2 * (1 - _pulseController.value)),
+                      width: 2,
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: primary.withOpacity(0.15),
+                border: Border.all(color: primary.withOpacity(0.4), width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: primary.withOpacity(0.3),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Icon(Icons.phone, color: primary, size: 24),
+            ),
+          ],
+        ),
+        ...List.generate(
+          3,
+          (i) => AnimatedBuilder(
+            animation: _pulseController,
+            builder: (ctx, _) => Icon(
+              Icons.chevron_left,
+              size: 18,
+              color: primary.withOpacity(
+                0.25 + 0.75 * ((_pulseController.value + i * 0.25) % 1.0),
+              ),
+            ),
           ),
         ),
+      ],
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  //  ACTION BAR — always at bottom, always responsive
+  // ══════════════════════════════════════════════════════════════
+
+  Widget _buildActionBar(
+      Color primary, bool isEnded, UserAudioDeviceManager audioMgr) {
+    final isMuted = _controller.isMuted;
+    final currentRoute = audioMgr.currentRoute;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // ── Mic toggle ──
+          UserCallActionButton(
+            icon: isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+            label: isMuted ? 'Unmute' : 'Mute',
+            isActive: isMuted,
+            activeColor: Colors.red.withOpacity(0.3),
+            onTap: isEnded ? () {} : () => _controller.toggleMute(),
+          ),
+
+          // ── End call ──
+          UserEndCallButton(
+            onTap: isEnded ? () {} : () => _controller.endCall(),
+          ),
+
+          // ── Audio route selector (replaces old speaker toggle) ──
+          UserCallActionButton(
+            icon: _audioRouteIcon(currentRoute),
+            label: audioMgr.routeLabel,
+            isActive: currentRoute == UserAudioRoute.speaker,
+            onTap: isEnded
+                ? () {}
+                : () => UserAudioRouteBottomSheet.show(context, audioMgr),
+          ),
+        ],
       ),
     );
   }
