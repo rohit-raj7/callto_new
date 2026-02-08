@@ -258,6 +258,7 @@ class _PaymentPageState extends State<PaymentPage> {
       if (paymentResult.success) {
         // Step 3: Set listener flag and preserve avatar before clearing form data
         await storageService.saveIsListener(true);
+        await storageService.saveListenerProfileComplete(true);
 
         // Preserve avatar URL before clearing (so TopBar can display it)
         final savedAvatarUrl = avatarUrl.isNotEmpty ? avatarUrl : null;

@@ -13,6 +13,14 @@ class FemaleProfilePage extends StatefulWidget {
 }
 
 class _FemaleProfilePageState extends State<FemaleProfilePage> {
+  // Consistent palette for listener onboarding
+  final Color primaryColor = const Color(0xFFFF4081);
+  final Color backgroundLight1 = const Color(0xFFFFEBEE);
+  final Color backgroundLight2 = const Color(0xFFFCE4EC);
+  final Color textPrimary = const Color(0xFF880E4F);
+  final Color textSecondary = const Color(0xFF757575);
+  final Color cardBorder = const Color(0xFFF8BBD0);
+
   final TextEditingController originalNameController = TextEditingController();
   final TextEditingController dummyNameController = TextEditingController();
   final TextEditingController ageController = TextEditingController();
@@ -112,21 +120,24 @@ class _FemaleProfilePageState extends State<FemaleProfilePage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Complete Your Profile',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: textPrimary,
+          ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFFF4081), Color(0xFFFCE4EC)],
+            colors: [backgroundLight1, backgroundLight2],
           ),
         ),
         child: SafeArea(
@@ -144,16 +155,18 @@ class _FemaleProfilePageState extends State<FemaleProfilePage> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 4),
+                    color: Colors.white,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.25),
-                        blurRadius: 12,
+                        color: primaryColor.withOpacity(0.25),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
                   child: ClipOval(
                     child: selectedAvatarIndex == null
-                        ? const Icon(Icons.person, size: 60, color: Colors.white)
+                        ? Icon(Icons.person, size: 60, color: primaryColor)
                         : Image.asset(
                             avatarImages[selectedAvatarIndex!],
                             fit: BoxFit.cover,
@@ -168,7 +181,15 @@ class _FemaleProfilePageState extends State<FemaleProfilePage> {
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
-                    color: Colors.transparent,
+                    color: Colors.white,
+                    border: Border.all(color: cardBorder),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryColor.withOpacity(0.12),
+                        blurRadius: 24,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,7 +199,16 @@ class _FemaleProfilePageState extends State<FemaleProfilePage> {
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: Color(0xFF880E4F),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'This info stays private and helps build trust.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: textSecondary,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -192,7 +222,7 @@ class _FemaleProfilePageState extends State<FemaleProfilePage> {
                       const SizedBox(height: 20),
 
                       _buildTextField(
-                        label: 'Display Name',
+                        label: 'Display Name (Not your real name)',
                         hint: 'How others will see you',
                         icon: Icons.badge_outlined,
                         controller: dummyNameController,
@@ -222,7 +252,16 @@ class _FemaleProfilePageState extends State<FemaleProfilePage> {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: Color(0xFF880E4F),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Pick one that represents you professionally.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: textSecondary,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -252,21 +291,24 @@ class _FemaleProfilePageState extends State<FemaleProfilePage> {
                       /// Continue Button
                       SizedBox(
                         width: double.infinity,
-                        height: 55,
+                        height: 56,
                         child: ElevatedButton(
                           onPressed: _submitProfile,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFF4081),
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shadowColor: primaryColor.withOpacity(0.4),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
+                              borderRadius: BorderRadius.circular(28),
                             ),
                           ),
                           child: const Text(
                             'Continue',
                             style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color.fromARGB(255, 255, 255, 255),
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
                             ),
                           ),
                         ),
@@ -297,10 +339,10 @@ class _FemaleProfilePageState extends State<FemaleProfilePage> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
+            color: textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -309,12 +351,22 @@ class _FemaleProfilePageState extends State<FemaleProfilePage> {
           keyboardType: keyboardType,
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: Icon(icon, color: const Color(0xFFFF4081)),
+            hintStyle: TextStyle(color: textSecondary),
+            prefixIcon: Icon(icon, color: primaryColor),
             filled: true,
             fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
+              borderSide: BorderSide(color: cardBorder),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: cardBorder),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: primaryColor, width: 1.5),
             ),
           ),
         ),
@@ -337,14 +389,14 @@ class _FemaleProfilePageState extends State<FemaleProfilePage> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color:
-                  isSelected ? const Color(0xFFFF4081) : Colors.transparent,
+              color: isSelected ? primaryColor : Colors.transparent,
               width: 3,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.12),
-                blurRadius: 8,
+                color: primaryColor.withOpacity(0.12),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),

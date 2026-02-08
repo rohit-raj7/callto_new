@@ -11,6 +11,9 @@ class StorageService {
   static const String _userDataKey = 'user_data';
   static const String _isListenerKey = 'is_listener';
   static const String _genderKey = 'gender';
+  static const String _emailKey = 'email';
+  static const String _userProfileCompleteKey = 'user_profile_complete';
+  static const String _listenerProfileCompleteKey = 'listener_profile_complete';
   static const String _displayNameKey = 'display_name';
   static const String _cityKey = 'city';
   static const String _avatarUrlKey = 'avatar_url';
@@ -87,6 +90,18 @@ class StorageService {
     return prefs.getString(_userIdKey);
   }
 
+  /// Save email
+  Future<void> saveEmail(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_emailKey, email);
+  }
+
+  /// Get email
+  Future<String?> getEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_emailKey);
+  }
+
   /// Save user data as JSON string
   Future<void> saveUserData(String userData) async {
     final prefs = await SharedPreferences.getInstance();
@@ -109,6 +124,30 @@ class StorageService {
   Future<bool> getIsListener() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_isListenerKey) ?? false;
+  }
+
+  /// Save user profile completion flag
+  Future<void> saveUserProfileComplete(bool isComplete) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_userProfileCompleteKey, isComplete);
+  }
+
+  /// Get user profile completion flag
+  Future<bool> getUserProfileComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_userProfileCompleteKey) ?? false;
+  }
+
+  /// Save listener profile completion flag
+  Future<void> saveListenerProfileComplete(bool isComplete) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_listenerProfileCompleteKey, isComplete);
+  }
+
+  /// Get listener profile completion flag
+  Future<bool> getListenerProfileComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_listenerProfileCompleteKey) ?? false;
   }
 
   /// Save gender
@@ -137,11 +176,27 @@ class StorageService {
     await prefs.remove(_userDataKey);
     await prefs.remove(_isListenerKey);
     await prefs.remove(_genderKey);
+    await prefs.remove(_emailKey);
+    await prefs.remove(_userProfileCompleteKey);
+    await prefs.remove(_listenerProfileCompleteKey);
     await prefs.remove(_displayNameKey);
     await prefs.remove(_cityKey);
     await prefs.remove(_avatarUrlKey);
     await prefs.remove(_languageKey);
     await prefs.remove(_formDataKey);
+  }
+
+  /// Clear user profile data (but keep auth identity)
+  Future<void> clearUserProfileData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_genderKey);
+    await prefs.remove(_displayNameKey);
+    await prefs.remove(_cityKey);
+    await prefs.remove(_avatarUrlKey);
+    await prefs.remove(_languageKey);
+    await prefs.remove(_dobKey);
+    await prefs.remove(_mobileKey);
+    await prefs.remove(_userProfileCompleteKey);
   }
 
   /// Save display name

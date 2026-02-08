@@ -37,9 +37,12 @@ class _GenderSelectionPageState extends State<GenderSelectionPage> {
       return;
     }
 
-    // Save gender to local storage silently
+    // Save gender locally for resume routing (no backend save here)
     final storageService = StorageService();
     await storageService.saveGender(selectedGender!);
+    await storageService.saveUserProfileComplete(false);
+    await storageService.saveListenerProfileComplete(false);
+    await storageService.saveIsListener(false);
 
     if (!mounted) return;
     if (selectedGender == 'Male') {

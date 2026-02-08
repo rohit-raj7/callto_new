@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'login/login.dart';
+import 'gender/gender_selection.dart';
 import 'user/widgets/bottom_nav_bar.dart' as user_bottom_nav_bar;
 import 'listener/widgets/bottom_nav_bar.dart' as listener_bottom_nav_bar;
+import 'user/user_form/intro_screen.dart';
+import 'listener/listener_form/intro_screen.dart';
 import 'services/auth_service.dart';
 import 'services/storage_service.dart';
 import 'services/listener_service.dart';
@@ -12,6 +15,7 @@ import 'services/incoming_call_overlay_service.dart';
 import 'services/call_service.dart';
 import 'services/in_app_chat_notification_service.dart';
 import 'listener/actions/calling.dart';
+import 'models/user_model.dart';
 
 /// Global navigator key for showing incoming call overlay anywhere in the app
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -448,90 +452,13 @@ class _SplashScreenState extends State<SplashScreen> {
             userName: user.displayName,
             userAvatar: user.avatarUrl,
           );
-          
-          // Role-based navigation: display appropriate dashboard based on account type
-          if (user.accountType == 'listener') {
-            // Listener: fetch listener profile and save avatar to local storage, then display listener dashboard
-            await _storageService.saveIsListener(true);
-            
-            // Socket will be connected by IncomingCallOverlayService in BottomNavBar
-            
-            // Fetch listener profile to get latest avatar
-            try {
-              final listenerService = ListenerService();
-              final profileResult = await listenerService.getMyProfile();
-              if (profileResult.success && profileResult.listener != null) {
-                // Save avatar to local storage for top_bar
-                if (profileResult.listener!.avatarUrl != null) {
-                  await _storageService.saveListenerAvatarUrl(profileResult.listener!.avatarUrl!);
-                }
-                // Override socket user info with listener profile data
-                // so chat messages show professional name & asset avatar
-                _socketService.setUserInfo(
-                  userName: profileResult.listener!.professionalName ?? user.displayName,
-                  userAvatar: profileResult.listener!.avatarUrl ?? user.avatarUrl,
-                );
-              }
-            } catch (e) {
-              print('Failed to fetch listener profile: $e');
-            }
-            
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const listener_bottom_nav_bar.BottomNavBar()),
-            );
-            return;
-          } else if (user.accountType == 'user' || user.accountType == 'both') {
-            // User: always display user dashboard
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const user_bottom_nav_bar.BottomNavBar()),
-            );
-            return;
-          }
         }
 
-        // Fallback: if user data refresh failed or account type not recognized
-        // Go to user dashboard as default
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const user_bottom_nav_bar.BottomNavBar()),
-        );
+        await _routeByProfileState(user);
       } catch (e) {
         // If refresh fails, fall back to local storage checks
         print('Failed to refresh user data: $e');
-
-        // Check if locally marked as listener
-        final isListener = await _storageService.getIsListener();
-        if (isListener) {
-          // Socket will be connected by IncomingCallOverlayService in BottomNavBar
-          
-          // Try to fetch listener profile for avatar
-          try {
-            final listenerService = ListenerService();
-            final profileResult = await listenerService.getMyProfile();
-            if (profileResult.success && profileResult.listener != null) {
-              // Save avatar to local storage for top_bar
-              if (profileResult.listener!.avatarUrl != null) {
-                await _storageService.saveListenerAvatarUrl(profileResult.listener!.avatarUrl!);
-              }
-            }
-          } catch (e) {
-            print('Failed to fetch listener profile: $e');
-          }
-          
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const listener_bottom_nav_bar.BottomNavBar()),
-          );
-          return;
-        }
-
-        // Not a listener - go to user dashboard
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const user_bottom_nav_bar.BottomNavBar()),
-        );
+        await _routeByProfileState(null);
       }
     } else {
       // User is not logged in
@@ -539,6 +466,76 @@ class _SplashScreenState extends State<SplashScreen> {
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
+    }
+  }
+
+  Future<void> _routeByProfileState(User? user) async {
+    final gender = await _storageService.getGender();
+    final listenerComplete = await _storageService.getListenerProfileComplete();
+    final userComplete = await _storageService.getUserProfileComplete();
+
+    if (listenerComplete || user?.accountType == 'listener') {
+      await _storageService.saveIsListener(true);
+      await _maybeRefreshListenerProfile(user);
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const listener_bottom_nav_bar.BottomNavBar()),
+      );
+      return;
+    }
+
+    if (userComplete) {
+      await _storageService.saveIsListener(false);
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const user_bottom_nav_bar.BottomNavBar()),
+      );
+      return;
+    }
+
+    if (gender == 'Female') {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const BecomeHostOnboarding()),
+      );
+      return;
+    }
+
+    if (gender == 'Male') {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const GenderSelectionPage()),
+    );
+  }
+
+  Future<void> _maybeRefreshListenerProfile(User? user) async {
+    // Socket will be connected by IncomingCallOverlayService in BottomNavBar
+    try {
+      final listenerService = ListenerService();
+      final profileResult = await listenerService.getMyProfile();
+      if (profileResult.success && profileResult.listener != null) {
+        if (profileResult.listener!.avatarUrl != null) {
+          await _storageService.saveListenerAvatarUrl(profileResult.listener!.avatarUrl!);
+        }
+        _socketService.setUserInfo(
+          userName: profileResult.listener!.professionalName ?? user?.displayName,
+          userAvatar: profileResult.listener!.avatarUrl ?? user?.avatarUrl,
+        );
+      }
+    } catch (e) {
+      print('Failed to fetch listener profile: $e');
     }
   }
 

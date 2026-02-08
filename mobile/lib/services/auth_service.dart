@@ -34,6 +34,7 @@ class AuthService {
 
     if (response.isSuccess) {
       final data = response.data;
+      final isNewUser = data['isNewUser'] ?? false;
       
       // Save token
       await _storage.saveToken(data['token']);
@@ -42,35 +43,48 @@ class AuthService {
       final user = User.fromJson(data['user']);
       _currentUser = user;
       await _storage.saveUserId(user.userId);
-      await _storage.saveUserData(jsonEncode(data['user']));
-      // Persist commonly used profile fields to local storage so profile pages
-      // show data after subsequent logins without requiring extra onboarding steps.
-      try {
-        if (user.displayName != null && user.displayName!.isNotEmpty) {
-          await _storage.saveDisplayName(user.displayName!);
-        }
-        if (user.city != null && user.city!.isNotEmpty) {
-          await _storage.saveCity(user.city!);
-        }
-        if (user.avatarUrl != null && user.avatarUrl!.isNotEmpty) {
-          await _storage.saveAvatarUrl(user.avatarUrl!);
-        }
-        if (user.gender != null && user.gender!.isNotEmpty) {
-          await _storage.saveGender(user.gender!);
-        }
-      } catch (_) {
-        // Ignore any storage errors here; profile page will fallback to defaults.
+      if (user.email != null && user.email!.isNotEmpty) {
+        await _storage.saveEmail(user.email!);
       }
-      
-      // Check if listener
-      if (user.accountType == 'listener') {
-        await _storage.saveIsListener(true);
+
+      if (isNewUser) {
+        await _storage.clearUserProfileData();
+        await _storage.clearListenerFormData();
+        await _storage.saveIsListener(false);
+        await _storage.saveUserProfileComplete(false);
+        await _storage.saveListenerProfileComplete(false);
+      } else {
+        await _storage.saveUserData(jsonEncode(data['user']));
+        // Persist commonly used profile fields to local storage so profile pages
+        // show data after subsequent logins without requiring extra onboarding steps.
+        try {
+          if (user.displayName != null && user.displayName!.isNotEmpty) {
+            await _storage.saveDisplayName(user.displayName!);
+          }
+          if (user.city != null && user.city!.isNotEmpty) {
+            await _storage.saveCity(user.city!);
+          }
+          if (user.avatarUrl != null && user.avatarUrl!.isNotEmpty) {
+            await _storage.saveAvatarUrl(user.avatarUrl!);
+          }
+          if (user.gender != null && user.gender!.isNotEmpty) {
+            await _storage.saveGender(user.gender!);
+          }
+        } catch (_) {
+          // Ignore any storage errors here; profile page will fallback to defaults.
+        }
+
+        // Check if listener
+        if (user.accountType == 'listener') {
+          await _storage.saveIsListener(true);
+          await _storage.saveListenerProfileComplete(true);
+        }
       }
       
       return AuthResult(
         success: true,
         user: user,
-        isNewUser: data['isNewUser'] ?? false,
+        isNewUser: isNewUser,
         message: data['message'],
       );
     } else {
@@ -145,13 +159,13 @@ class AuthService {
       if (userData != null) {
         try {
           _currentUser = User.fromJson(jsonDecode(userData));
-          return true;
         } catch (e) {
           // Invalid stored data
           await _storage.clearAll();
           return false;
         }
       }
+      return true;
     }
     
     return false;
@@ -179,14 +193,21 @@ class AuthService {
         if (user.gender != null && user.gender!.isNotEmpty) {
           await _storage.saveGender(user.gender!);
         }
+        if (user.email != null && user.email!.isNotEmpty) {
+          await _storage.saveEmail(user.email!);
+        }
       } catch (_) {
         // ignore
       }
       // Ensure local listener flag matches backend
       if (user.accountType == 'listener') {
         await _storage.saveIsListener(true);
+        await _storage.saveListenerProfileComplete(true);
       } else {
         await _storage.saveIsListener(false);
+      }
+      if (user.hasCompleteProfile) {
+        await _storage.saveUserProfileComplete(true);
       }
       return user;
     }

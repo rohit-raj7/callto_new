@@ -5,8 +5,11 @@ import '../terms_condition/terms_of_use.dart';
 import '../terms_condition/privacy_policy.dart';
 import '../gender/gender_selection.dart';
 import '../services/auth_service.dart';
+import '../services/storage_service.dart';
 import '../user/widgets/bottom_nav_bar.dart' as user_bottom_nav_bar;
 import '../listener/widgets/bottom_nav_bar.dart' as listener_bottom_nav_bar;
+import '../user/user_form/intro_screen.dart';
+import '../listener/listener_form/intro_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,6 +20,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State with TickerProviderStateMixin {
   final AuthService _authService = AuthService();
+  final StorageService _storageService = StorageService();
   GoogleSignIn? _googleSignIn;
   bool _isLoading = false;
   bool _agreedToTerms = true;
@@ -231,42 +235,62 @@ class _LoginScreenState extends State with TickerProviderStateMixin {
 
     try {
       final refreshed = await _authService.refreshUserData();
-      final accountType = refreshed?.accountType ?? result.user?.accountType;
-
-      if (!mounted) return;
-
-      if (accountType == 'listener') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (context) => const listener_bottom_nav_bar.BottomNavBar()),
-        );
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (context) => const user_bottom_nav_bar.BottomNavBar()),
-        );
-      }
+      await _routeByProfileState(refreshed?.accountType ?? result.user?.accountType);
     } catch (e) {
-      final accountType = result.user?.accountType;
-
-      if (!mounted) return;
-
-      if (accountType == 'listener') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (context) => const listener_bottom_nav_bar.BottomNavBar()),
-        );
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (context) => const user_bottom_nav_bar.BottomNavBar()),
-        );
-      }
+      await _routeByProfileState(result.user?.accountType);
     }
+  }
+
+  Future<void> _routeByProfileState(String? accountType) async {
+    final gender = await _storageService.getGender();
+    final listenerComplete = await _storageService.getListenerProfileComplete();
+    final userComplete = await _storageService.getUserProfileComplete();
+
+    if (listenerComplete || accountType == 'listener') {
+      await _storageService.saveIsListener(true);
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+            builder: (context) => const listener_bottom_nav_bar.BottomNavBar()),
+      );
+      return;
+    }
+
+    if (userComplete) {
+      await _storageService.saveIsListener(false);
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+            builder: (context) => const user_bottom_nav_bar.BottomNavBar()),
+      );
+      return;
+    }
+
+    if (gender == 'Female') {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const BecomeHostOnboarding()),
+      );
+      return;
+    }
+
+    if (gender == 'Male') {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const GenderSelectionPage()),
+    );
   }
 
   void _skipLoginForDemo() {

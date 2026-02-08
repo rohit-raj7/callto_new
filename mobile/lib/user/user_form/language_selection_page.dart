@@ -96,6 +96,8 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
       if (profileResult.success) {
+        await _storageService.saveUserProfileComplete(true);
+        await _storageService.saveIsListener(false);
         // Show professional success notification
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
