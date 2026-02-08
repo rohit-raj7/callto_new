@@ -747,7 +747,7 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage>
     if (hours > 0) {
       return '${hours}h ${minutes}m';
     }
-    return '${minutes} min';
+    return '$minutes min';
   }
 
   /// Build user earnings card

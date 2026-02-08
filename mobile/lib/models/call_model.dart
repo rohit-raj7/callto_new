@@ -42,7 +42,7 @@ class Call {
 
   factory Call.fromJson(Map<String, dynamic> json) {
     // Helper to safely parse doubles from string or numeric values
-    double _parseDouble(dynamic value) {
+    double parseDouble(dynamic value) {
       if (value == null) return 0.0;
       if (value is double) return value;
       if (value is int) return value.toDouble();
@@ -51,7 +51,7 @@ class Call {
     }
 
     // Helper to safely parse booleans from various formats
-    bool? _parseBool(dynamic value) {
+    bool? parseBool(dynamic value) {
       if (value == null) return null;
       if (value is bool) return value;
       if (value is String) return value.toLowerCase() == 'true' || value == 't' || value == '1';
@@ -72,9 +72,9 @@ class Call {
           ? DateTime.tryParse(json['ended_at'].toString()) 
           : null,
       durationSeconds: json['duration_seconds'],
-      ratePerMinute: _parseDouble(json['rate_per_minute']),
+      ratePerMinute: parseDouble(json['rate_per_minute']),
       totalCost: json['total_cost'] != null 
-          ? _parseDouble(json['total_cost']) 
+          ? parseDouble(json['total_cost']) 
           : null,
       createdAt: json['created_at'] != null 
           ? DateTime.tryParse(json['created_at'].toString()) 
@@ -84,7 +84,7 @@ class Call {
       listenerName: json['listener_name'] ?? json['professional_name'] ?? json['listener_display_name'],
       listenerAvatar: json['listener_avatar'] ?? json['profile_image'],
       listenerUserId: json['listener_user_id']?.toString(),
-      listenerOnline: _parseBool(json['listener_online']),
+      listenerOnline: parseBool(json['listener_online']),
     );
   }
 

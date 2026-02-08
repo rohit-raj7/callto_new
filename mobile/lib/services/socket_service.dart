@@ -96,7 +96,7 @@ class SocketService {
   final Map<String, bool> listenerOnlineMap = {}; // Tracks all listeners' online status
   final StreamController<Map<String, bool>> _listenerStatusController = StreamController.broadcast();
   bool _connecting = false;
-  bool _listenerRegistered = false;
+  final bool _listenerRegistered = false;
   
   // Track joined chat rooms
   final Set<String> _joinedChatRooms = {};

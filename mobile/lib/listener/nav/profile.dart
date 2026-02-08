@@ -626,8 +626,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
 // Top-level helper functions
 ImageProvider avatarProvider(String? url) {
-  if (url == null || url.isEmpty)
+  if (url == null || url.isEmpty) {
     return const AssetImage('assets/images/user.png');
+  }
   final lower = url.toLowerCase();
   if (lower.startsWith('http://') ||
       lower.startsWith('https://') ||

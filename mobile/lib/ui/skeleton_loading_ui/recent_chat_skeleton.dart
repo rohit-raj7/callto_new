@@ -7,7 +7,7 @@ class RecentChatSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final bg = scheme.surface;
-    final fg = scheme.surfaceVariant;
+    final fg = scheme.surfaceContainerHighest;
     final border = Theme.of(context).dividerColor.withOpacity(0.12);
 
     return Container(

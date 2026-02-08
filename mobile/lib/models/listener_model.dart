@@ -52,7 +52,7 @@ class Listener {
 
   factory Listener.fromJson(Map<String, dynamic> json) {
     // Helper to safely parse doubles from string or numeric values
-    double _parseDouble(dynamic value) {
+    double parseDouble(dynamic value) {
       if (value == null) return 0.0;
       if (value is double) return value;
       if (value is int) return value.toDouble();
@@ -67,11 +67,11 @@ class Listener {
       age: json['age'],
       specialties: _parseStringList(json['specialties']),
       languages: _parseStringList(json['languages']),
-      ratePerMinute: _parseDouble(json['rate_per_minute']),
+      ratePerMinute: parseDouble(json['rate_per_minute']),
       isOnline: json['is_online'] ?? false,
       isAvailable: json['is_available'] ?? true,
       isApproved: json['is_approved'] ?? false,
-      rating: _parseDouble(json['rating'] ?? json['average_rating']),
+      rating: parseDouble(json['rating'] ?? json['average_rating']),
       totalCalls: json['total_calls'] ?? 0,
       totalMinutes: json['total_minutes'] ?? 0,
       experienceYears: json['experience_years'],

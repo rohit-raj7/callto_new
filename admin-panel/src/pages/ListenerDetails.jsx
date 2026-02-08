@@ -561,7 +561,7 @@ const ListenerDetails = () => {
                 Voice Verification
               </h3>
 
-              {listener.voice_verification_url && !listener.voice_verification_url.startsWith('data:') ? (
+              {listener.voice_verification_url ? (
                 <div>
                   {/* Hidden audio element */}
                   <audio

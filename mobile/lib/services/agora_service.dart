@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'api_service.dart';
 import 'api_config.dart';
 import 'storage_service.dart';

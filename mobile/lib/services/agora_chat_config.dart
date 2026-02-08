@@ -7,6 +7,7 @@
 /// - User identity (userId)
 /// - Channel/Room naming conventions
 /// - Session ID generation
+library;
 
 class AgoraChatConfig {
   /// Generate a consistent chat room ID for two users

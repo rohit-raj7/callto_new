@@ -7,7 +7,7 @@ class ListenerCardSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final bg = scheme.surface;
-    final fill = scheme.surfaceVariant;
+    final fill = scheme.surfaceContainerHighest;
     final border = Theme.of(context).dividerColor.withOpacity(0.12);
     
     // Get screen width for responsive sizing

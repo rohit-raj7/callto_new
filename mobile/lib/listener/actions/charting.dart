@@ -41,7 +41,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _isLoading = true;
   bool _isTyping = false;
   bool _otherUserTyping = false;
-  bool _otherUserOnline = false; // User online status
+  final bool _otherUserOnline = false; // User online status
   String? _errorMessage;
   
   // Track if we've received history from socket
