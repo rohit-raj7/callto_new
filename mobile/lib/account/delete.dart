@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'delete_request_form.dart';
 
 class DeleteAccountPage extends StatelessWidget {
   const DeleteAccountPage({super.key});
@@ -7,9 +8,10 @@ class DeleteAccountPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Delete Account"),
+        title: const Text("Confirm Account Deletion"),
         content: const Text(
-            "Are you sure you want to permanently delete your account? This action cannot be undone."),
+          "Account deletion is permanent and cannot be undone. Do you want to proceed to the delete request form?",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -21,12 +23,12 @@ class DeleteAccountPage extends StatelessWidget {
             ),
             onPressed: () {
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Account deleted successfully.")),
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const DeleteRequestFormPage()),
               );
-              Navigator.pop(context);
             },
-            child: const Text("Delete"),
+            child: const Text("Continue"),
           ),
         ],
       ),
@@ -41,15 +43,34 @@ class DeleteAccountPage extends StatelessWidget {
         backgroundColor: const Color(0xFFFFE4EC),
       ),
       body: Center(
-        child: ElevatedButton.icon(
-          icon: const Icon(Icons.delete_forever),
-          label: const Text("Delete My Account"),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.redAccent,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Requesting account deletion will permanently remove your profile and data.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFF6B6B6B),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 20),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.delete_forever),
+                label: const Text("Request Account Deletion"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.redAccent,
+                  side: const BorderSide(color: Colors.redAccent),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                onPressed: () => _confirmDelete(context),
+              ),
+            ],
           ),
-          onPressed: () => _confirmDelete(context),
         ),
       ),
     );

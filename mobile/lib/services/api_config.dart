@@ -20,6 +20,7 @@ class ApiConfig {
   static final String socialLogin = '$apiBase/auth/social-login';
   static final String register = '$apiBase/auth/register';
   static final String logout = '$apiBase/auth/logout';
+  static final String deleteAccountRequest = '$apiBase/account/delete-request';
 
   static final String userProfile = '$apiBase/users/profile';
   static final String userLanguages = '$apiBase/users/languages';

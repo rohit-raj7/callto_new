@@ -13,6 +13,8 @@ const Breadcrumb = () => {
     'listeners': 'Listeners',
     'user-contacts': 'User Contacts',
     'send-notification': 'Send Notification',
+    'contact-messages': 'Contact Messages',
+    'delete-requests': 'Delete Requests',
   };
 
   return (

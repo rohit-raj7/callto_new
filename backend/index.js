@@ -26,6 +26,7 @@ import createChatsRouter from './routes/chats.js';
 import adminRoutes from './routes/admin.js';
 import contactRoutes from './routes/contacts.js';
 import notificationsRoutes from './routes/notifications.js';
+import accountRoutes from './routes/account.js';
 import User from './models/User.js';
 import Listener from './models/Listener.js'; // Import for verification checks
 import { Chat, Message } from './models/Chat.js';
@@ -104,6 +105,7 @@ app.use('/api/chats', createChatsRouter(io)); // Pass io for real-time message d
 app.use('/api/admin', adminRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/account', accountRoutes);
 
 // ============================================
 // SOCKET.IO - REAL-TIME FEATURES

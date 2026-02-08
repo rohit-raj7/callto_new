@@ -166,6 +166,99 @@ router.get('/contact-messages', authenticateAdmin, async (req, res) => {
   }
 });
 
+// GET /api/admin/delete-requests
+// Fetch account deletion requests for admin panel
+router.get('/delete-requests', authenticateAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 50, role, status, search } = req.query;
+    const perPage = Math.min(Math.max(Number(limit) || 50, 1), 200);
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const offset = (currentPage - 1) * perPage;
+
+    const conds = [];
+    const params = [];
+    let idx = 1;
+
+    if (role && (role === 'user' || role === 'listener')) {
+      conds.push(`role = $${idx++}`);
+      params.push(role);
+    }
+
+    if (status && (status === 'pending' || status === 'approved' || status === 'rejected')) {
+      conds.push(`status = $${idx++}`);
+      params.push(status);
+    }
+
+    if (search) {
+      conds.push(
+        `(name ILIKE $${idx} OR email ILIKE $${idx} OR phone ILIKE $${idx} OR reason ILIKE $${idx})`
+      );
+      params.push(`%${String(search).trim()}%`);
+      idx += 1;
+    }
+
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const listQuery = `
+      SELECT request_id, user_id, name, email, phone, reason, role, status, created_at
+      FROM delete_account_requests
+      ${where}
+      ORDER BY created_at DESC
+      LIMIT $${idx} OFFSET $${idx + 1}
+    `;
+    const listParams = [...params, perPage, offset];
+
+    const countQuery = `
+      SELECT COUNT(*)::int AS count
+      FROM delete_account_requests
+      ${where}
+    `;
+
+    const [listResult, countResult] = await Promise.all([
+      pool.query(listQuery, listParams),
+      pool.query(countQuery, params)
+    ]);
+
+    res.json({
+      requests: listResult.rows,
+      count: countResult.rows[0]?.count || 0,
+      page: currentPage,
+      limit: perPage
+    });
+  } catch (error) {
+    console.error('Get delete requests error:', error);
+    res.status(500).json({ error: 'Failed to fetch delete requests' });
+  }
+});
+
+// DELETE /api/admin/delete-requests/:request_id
+// Remove a delete request from admin panel
+router.delete('/delete-requests/:request_id', authenticateAdmin, async (req, res) => {
+  try {
+    const { request_id } = req.params;
+
+    if (!request_id) {
+      return res.status(400).json({ error: 'Request id is required' });
+    }
+
+    const deleteQuery = `
+      DELETE FROM delete_account_requests
+      WHERE request_id = $1
+      RETURNING request_id
+    `;
+
+    const result = await pool.query(deleteQuery, [request_id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Delete request not found' });
+    }
+
+    return res.json({ message: 'Delete request removed', request_id });
+  } catch (error) {
+    console.error('Delete request removal error:', error);
+    return res.status(500).json({ error: 'Failed to delete request' });
+  }
+});
+
 // PUT /api/admin/listeners/:listener_id/verification-status
 // Update listener verification status (approve/reject)
 // VERIFICATION CONTROL: Admin endpoint to approve or reject listener applications

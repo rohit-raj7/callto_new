@@ -171,6 +171,25 @@ CREATE INDEX idx_contact_messages_created_at ON contact_messages(created_at DESC
 CREATE INDEX idx_contact_messages_source ON contact_messages(source);
 
 -- ============================================
+-- DELETE ACCOUNT REQUESTS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS delete_account_requests (
+    request_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    reason TEXT NOT NULL,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'listener')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_delete_requests_created_at ON delete_account_requests(created_at DESC);
+CREATE INDEX idx_delete_requests_role ON delete_account_requests(role);
+CREATE INDEX idx_delete_requests_status ON delete_account_requests(status);
+
+-- ============================================
 -- RATINGS & REVIEWS TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS ratings (

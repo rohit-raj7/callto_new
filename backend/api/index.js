@@ -15,6 +15,7 @@ import callRoutes from '../routes/calls.js';
 import chatRoutes from '../routes/chats.js';
 import adminRoutes from '../routes/admin.js';
 import notificationsRoutes from '../routes/notifications.js';
+import accountRoutes from '../routes/account.js';
 
 // Initialize Express app
 const app = express();
@@ -89,6 +90,7 @@ app.use('/api/calls', callRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/account', accountRoutes);
 
 // ============================================
 // ERROR HANDLING

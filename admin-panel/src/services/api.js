@@ -80,6 +80,8 @@ export const deleteListener = (listener_id) => api.delete(`/listeners/${listener
 // Admin methods
 export const getAdminListeners = () => api.get('/admin/listeners');
 export const getContactMessages = (params = {}) => api.get('/admin/contact-messages', { params });
+export const getDeleteRequests = (params = {}) => api.get('/admin/delete-requests', { params });
+export const deleteDeleteRequest = (request_id) => api.delete(`/admin/delete-requests/${request_id}`);
 export const updateListenerVerificationStatus = (listener_id, status) => 
   api.put(`/admin/listeners/${listener_id}/verification-status`, { status });
 export const getOutbox = (params = {}) => api.get('/notifications/outbox', { params });

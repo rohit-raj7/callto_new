@@ -168,6 +168,24 @@ async function ensureSchema() {
     `;
     await pool.query(createContactMessagesSql);
 
+    const createDeleteRequestsSql = `
+      CREATE TABLE IF NOT EXISTS delete_account_requests (
+        request_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        reason TEXT NOT NULL,
+        role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'listener')),
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_delete_requests_created_at ON delete_account_requests(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_delete_requests_role ON delete_account_requests(role);
+      CREATE INDEX IF NOT EXISTS idx_delete_requests_status ON delete_account_requests(status);
+    `;
+    await pool.query(createDeleteRequestsSql);
+
     // Add commonly used social auth columns if they don't exist yet
     const alterSql = `
       ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(20) DEFAULT 'phone';
