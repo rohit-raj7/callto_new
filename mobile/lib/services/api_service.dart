@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'api_config.dart';
 import 'storage_service.dart';
 
@@ -119,6 +121,51 @@ class ApiService {
       return ApiResponse.error('Server error occurred');
     } catch (e) {
       return ApiResponse.error('Request failed: $e');
+    }
+  }
+
+  /// Upload a file via multipart/form-data POST request
+  Future<ApiResponse> uploadMultipart(
+    String url, {
+    required Uint8List fileBytes,
+    required String filename,
+    required String fieldName,
+    String? mimeType,
+  }) async {
+    try {
+      final uri = Uri.parse(url);
+      final token = await _storage.getToken();
+
+      final request = http.MultipartRequest('POST', uri);
+      if (token != null) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      MediaType? contentType;
+      if (mimeType != null) {
+        final parts = mimeType.split('/');
+        if (parts.length == 2) {
+          contentType = MediaType(parts[0], parts[1]);
+        }
+      }
+
+      request.files.add(http.MultipartFile.fromBytes(
+        fieldName,
+        fileBytes,
+        filename: filename,
+        contentType: contentType,
+      ));
+
+      final streamedResponse = await request.send().timeout(ApiConfig.timeout);
+      final response = await http.Response.fromStream(streamedResponse);
+
+      return _handleResponse(response);
+    } on SocketException {
+      return ApiResponse.error('No internet connection');
+    } on HttpException {
+      return ApiResponse.error('Server error occurred');
+    } catch (e) {
+      return ApiResponse.error('Upload failed: $e');
     }
   }
 

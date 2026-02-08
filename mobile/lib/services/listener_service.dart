@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'api_service.dart';
 import 'api_config.dart';
 import '../models/listener_model.dart';
@@ -274,6 +275,58 @@ class ListenerService {
       return ListenerDetailResult(
         success: false,
         error: response.error ?? 'Failed to save payment details',
+      );
+    }
+  }
+
+  /// Upload voice file to Cloudinary via backend (returns secure_url)
+  Future<ListenerDetailResult> uploadVoiceFile({
+    required Uint8List fileBytes,
+    required String filename,
+    required String mimeType,
+  }) async {
+    final response = await _api.uploadMultipart(
+      ApiConfig.uploadVoice,
+      fileBytes: fileBytes,
+      filename: filename,
+      fieldName: 'voiceFile',
+      mimeType: mimeType,
+    );
+
+    if (response.isSuccess) {
+      return ListenerDetailResult(
+        success: true,
+        message: response.data['secure_url'],
+      );
+    } else {
+      return ListenerDetailResult(
+        success: false,
+        error: response.error ?? 'Failed to upload voice file',
+      );
+    }
+  }
+
+  /// Update voice verification for a listener (sends Cloudinary URL)
+  Future<ListenerDetailResult> updateVoiceVerification({
+    required String listenerId,
+    required String voiceUrl,
+  }) async {
+    final response = await _api.put(
+      '${ApiConfig.listeners}/$listenerId/voice-verification',
+      body: {
+        'voice_url': voiceUrl,
+      },
+    );
+
+    if (response.isSuccess) {
+      return ListenerDetailResult(
+        success: true,
+        message: response.data['message'] ?? 'Voice verification updated',
+      );
+    } else {
+      return ListenerDetailResult(
+        success: false,
+        error: response.error ?? 'Failed to update voice verification',
       );
     }
   }

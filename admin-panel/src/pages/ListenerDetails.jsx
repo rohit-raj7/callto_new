@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getListenerById, updateListenerVerificationStatus } from '../services/api';
 import {
@@ -6,7 +6,7 @@ import {
   Star, TrendingUp, Clock, DollarSign, Headphones, Award,
   Shield, Building2, CreditCard, User, Briefcase, GraduationCap,
   Languages, Heart, Activity, Eye, EyeOff, MessageSquare, IndianRupee, 
-  CheckCircle, XCircle, AlertCircle
+  CheckCircle, XCircle, AlertCircle, Volume2, Mic, Play, Pause, RotateCcw
 } from 'lucide-react';
 
 const ListenerDetails = () => {
@@ -19,6 +19,13 @@ const ListenerDetails = () => {
   const [copiedField, setCopiedField] = useState(null);
   const [updatingVerification, setUpdatingVerification] = useState(false);
   const [verificationSuccess, setVerificationSuccess] = useState(false);
+
+  // Voice player state
+  const [isVoicePlaying, setIsVoicePlaying] = useState(false);
+  const [voiceProgress, setVoiceProgress] = useState(0);
+  const [voiceDuration, setVoiceDuration] = useState(0);
+  const [voiceCurrentTime, setVoiceCurrentTime] = useState(0);
+  const audioRef = useRef(null);
 
   // Platform commission constants (30% platform, 70% listener)
   const PLATFORM_COMMISSION_PERCENT = 30;
@@ -40,6 +47,63 @@ const ListenerDetails = () => {
 
     fetchListener();
   }, [listener_id]);
+
+  // Audio player handlers
+  const handlePlayPause = () => {
+    if (!audioRef.current) return;
+    if (isVoicePlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsVoicePlaying(!isVoicePlaying);
+  };
+
+  const handleAudioTimeUpdate = () => {
+    if (!audioRef.current) return;
+    const current = audioRef.current.currentTime;
+    const duration = audioRef.current.duration;
+    setVoiceCurrentTime(current);
+    setVoiceProgress(duration ? (current / duration) * 100 : 0);
+  };
+
+  const handleAudioLoadedMetadata = () => {
+    if (audioRef.current) {
+      setVoiceDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleAudioEnded = () => {
+    setIsVoicePlaying(false);
+    setVoiceProgress(0);
+    setVoiceCurrentTime(0);
+  };
+
+  const handleProgressClick = (e) => {
+    if (!audioRef.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const pct = x / rect.width;
+    audioRef.current.currentTime = pct * audioRef.current.duration;
+  };
+
+  const handleRestart = () => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = 0;
+    setVoiceProgress(0);
+    setVoiceCurrentTime(0);
+    if (!isVoicePlaying) {
+      audioRef.current.play();
+      setIsVoicePlaying(true);
+    }
+  };
+
+  const formatTime = (secs) => {
+    if (!secs || isNaN(secs)) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   const handleCopyToClipboard = async (value, fieldName) => {
     try {
@@ -490,36 +554,118 @@ const ListenerDetails = () => {
           <div className="space-y-6">
            
              
-            {/* Activity Status */}
+            {/* Voice Verification */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-indigo-600" />
-                Status
+                <Mic className="w-5 h-5 text-indigo-600" />
+                Voice Verification
               </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Account</span>
-                  <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Active</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Availability</span>
-                  <span className={`text-sm font-medium ${
-                    listener.is_available 
-                      ? 'text-emerald-600 dark:text-emerald-400' 
-                      : 'text-gray-600 dark:text-gray-400'
-                  }`}>
-                    {listener.is_available ? 'Available' : 'Unavailable'}
-                  </span>
-                </div>
-                {stats?.unique_callers > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Unique Callers</span>
-                    <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-                      {stats.unique_callers}
-                    </span>
+
+              {listener.voice_verification_url && !listener.voice_verification_url.startsWith('data:') ? (
+                <div>
+                  {/* Hidden audio element */}
+                  <audio
+                    ref={audioRef}
+                    src={listener.voice_verification_url}
+                    onTimeUpdate={handleAudioTimeUpdate}
+                    onLoadedMetadata={handleAudioLoadedMetadata}
+                    onEnded={handleAudioEnded}
+                    preload="metadata"
+                  />
+
+                  {/* Player Card */}
+                  <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-5 border border-indigo-100 dark:border-indigo-800/40">
+                    {/* Waveform / Progress Bar */}
+                    <div
+                      className="relative h-12 bg-white/60 dark:bg-gray-800/60 rounded-lg mb-4 cursor-pointer overflow-hidden group"
+                      onClick={handleProgressClick}
+                    >
+                      {/* Waveform decorative bars */}
+                      <div className="absolute inset-0 flex items-center justify-around px-2 opacity-30">
+                        {Array.from({ length: 40 }).map((_, i) => (
+                          <div
+                            key={i}
+                            className="w-1 rounded-full bg-indigo-400 dark:bg-indigo-500"
+                            style={{ height: `${20 + Math.sin(i * 0.7) * 15 + Math.random() * 10}px` }}
+                          />
+                        ))}
+                      </div>
+                      {/* Progress overlay */}
+                      <div
+                        className="absolute inset-y-0 left-0 flex items-center justify-around px-2 overflow-hidden transition-all"
+                        style={{ width: `${voiceProgress}%` }}
+                      >
+                        <div className="absolute inset-0 bg-indigo-500/20 dark:bg-indigo-400/20" />
+                        {Array.from({ length: 40 }).map((_, i) => (
+                          <div
+                            key={i}
+                            className="relative w-1 rounded-full bg-indigo-600 dark:bg-indigo-400"
+                            style={{ height: `${20 + Math.sin(i * 0.7) * 15 + Math.random() * 10}px` }}
+                          />
+                        ))}
+                      </div>
+                      {/* Hover hint */}
+                      <div className="absolute inset-0 bg-indigo-500/0 group-hover:bg-indigo-500/5 transition-colors" />
+                    </div>
+
+                    {/* Controls Row */}
+                    <div className="flex items-center gap-3">
+                      {/* Play / Pause Button */}
+                      <button
+                        onClick={handlePlayPause}
+                        className="w-11 h-11 flex items-center justify-center rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30 transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+                      >
+                        {isVoicePlaying ? (
+                          <Pause className="w-5 h-5" />
+                        ) : (
+                          <Play className="w-5 h-5 ml-0.5" />
+                        )}
+                      </button>
+
+                      {/* Restart Button */}
+                      <button
+                        onClick={handleRestart}
+                        className="w-9 h-9 flex items-center justify-center rounded-full bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+                        title="Restart"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+
+                      {/* Time Display */}
+                      <div className="flex-1 flex items-center justify-end">
+                        <span className="text-sm font-mono font-medium text-gray-600 dark:text-gray-300">
+                          {formatTime(voiceCurrentTime)}
+                          <span className="text-gray-400 dark:text-gray-500 mx-1">/</span>
+                          {formatTime(voiceDuration)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  {/* Voice Status Badge */}
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
+                      listener.voice_verified
+                        ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                        : 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400'
+                    }`}>
+                      {listener.voice_verified ? (
+                        <><CheckCircle className="w-3.5 h-3.5" /> Verified</>
+                      ) : (
+                        <><AlertCircle className="w-3.5 h-3.5" /> Pending Review</>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center py-8 text-center">
+                  <div className="w-14 h-14 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-3">
+                    <Volume2 className="w-7 h-7 text-gray-400" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No voice recording</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Listener hasn't submitted a voice verification yet</p>
+                </div>
+              )}
             </div>
 
             {/* Verification Status Control */}

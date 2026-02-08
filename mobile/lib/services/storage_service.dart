@@ -58,6 +58,10 @@ class StorageService {
   static const String _listenerExperiencesKey = 'listener_experiences';
   static const String _listenerRatePerMinuteKey = 'listener_rate_per_minute';
   static const String _listenerVoiceVerifiedKey = 'listener_voice_verified';
+  static const String _listenerVoiceUrlKey = 'listener_voice_url';
+  static const String _listenerVoiceLocalPathKey = 'listener_voice_local_path';
+  static const String _listenerVoiceBase64Key = 'listener_voice_base64';
+  static const String _listenerVoiceMimeTypeKey = 'listener_voice_mime_type';
   static const String _listenerSpecialtiesKey = 'listener_specialties';
 
   /// Save authentication token
@@ -390,6 +394,54 @@ class StorageService {
     return prefs.getBool(_listenerVoiceVerifiedKey) ?? false;
   }
 
+  /// Save listener voice URL (Google Drive link)
+  Future<void> saveListenerVoiceUrl(String url) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_listenerVoiceUrlKey, url);
+  }
+
+  /// Get listener voice URL
+  Future<String?> getListenerVoiceUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_listenerVoiceUrlKey);
+  }
+
+  /// Save listener voice local file path
+  Future<void> saveListenerVoiceLocalPath(String path) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_listenerVoiceLocalPathKey, path);
+  }
+
+  /// Get listener voice local file path
+  Future<String?> getListenerVoiceLocalPath() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_listenerVoiceLocalPathKey);
+  }
+
+  /// Save listener voice base64 data (for upload after listener creation)
+  Future<void> saveListenerVoiceBase64(String base64Data) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_listenerVoiceBase64Key, base64Data);
+  }
+
+  /// Get listener voice base64 data
+  Future<String?> getListenerVoiceBase64() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_listenerVoiceBase64Key);
+  }
+
+  /// Save listener voice mime type
+  Future<void> saveListenerVoiceMimeType(String mimeType) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_listenerVoiceMimeTypeKey, mimeType);
+  }
+
+  /// Get listener voice mime type
+  Future<String?> getListenerVoiceMimeType() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_listenerVoiceMimeTypeKey);
+  }
+
   /// Save listener specialties
   Future<void> saveListenerSpecialties(List<String> specialties) async {
     final prefs = await SharedPreferences.getInstance();
@@ -430,6 +482,10 @@ class StorageService {
     await prefs.remove(_listenerExperiencesKey);
     await prefs.remove(_listenerRatePerMinuteKey);
     await prefs.remove(_listenerVoiceVerifiedKey);
+    await prefs.remove(_listenerVoiceUrlKey);
+    await prefs.remove(_listenerVoiceLocalPathKey);
+    await prefs.remove(_listenerVoiceBase64Key);
+    await prefs.remove(_listenerVoiceMimeTypeKey);
     await prefs.remove(_listenerSpecialtiesKey);
   }
 

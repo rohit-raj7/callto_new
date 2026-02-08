@@ -4,6 +4,29 @@ import Listener from '../models/Listener.js';
 import Rating from '../models/Rating.js';
 import { pool } from '../db.js';
 import { authenticate, authenticateAdmin } from '../middleware/auth.js';
+import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Multer memory storage for voice uploads (no disk writes)
+const voiceUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/m4a', 'audio/mp4', 'audio/aac', 'audio/x-m4a'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported audio type: ${file.mimetype}`), false);
+    }
+  },
+});
 
 // GET /api/listeners
 // Get all listeners with filters-
@@ -679,14 +702,65 @@ router.put('/:listener_id/experiences', authenticate, async (req, res) => {
   }
 });
 
+// POST /api/listeners/upload-voice
+// Upload voice recording to Cloudinary (returns secure_url)
+router.post('/upload-voice', authenticate, voiceUpload.single('voiceFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No audio file provided. Send as multipart field "voiceFile".' });
+    }
+
+    console.log(`[UPLOAD_VOICE] Uploading ${req.file.originalname} (${req.file.mimetype}, ${req.file.size} bytes) for user ${req.userId}`);
+
+    // Upload buffer to Cloudinary via stream
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'video', // Cloudinary uses 'video' for audio files
+          folder: 'callto/voice_verifications',
+          public_id: `voice_${req.userId}_${Date.now()}`,
+          format: 'mp3', // Normalize to mp3 for browser compatibility
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      stream.end(req.file.buffer);
+    });
+
+    console.log(`[UPLOAD_VOICE] Cloudinary upload success: ${result.secure_url}`);
+
+    res.json({
+      message: 'Voice uploaded successfully',
+      secure_url: result.secure_url,
+      public_id: result.public_id,
+      duration: result.duration,
+      format: result.format,
+    });
+  } catch (error) {
+    console.error('Upload voice error:', error);
+    res.status(500).json({ error: error.message || 'Failed to upload voice to Cloudinary' });
+  }
+});
+
 // PUT /api/listeners/:listener_id/voice-verification
 // Update voice verification status
 router.put('/:listener_id/voice-verification', authenticate, async (req, res) => {
   try {
-    const { voice_url } = req.body;
+    const { voice_url, voice_data, mime_type } = req.body;
 
-    if (!voice_url) {
-      return res.status(400).json({ error: 'Voice URL is required' });
+    // Accept either a URL or base64 audio data
+    let finalVoiceUrl = voice_url;
+
+    if (!finalVoiceUrl && voice_data) {
+      // voice_data is base64-encoded audio — store as data URL
+      const mimeType = mime_type || 'audio/ogg';
+      finalVoiceUrl = `data:${mimeType};base64,${voice_data}`;
+    }
+
+    if (!finalVoiceUrl) {
+      return res.status(400).json({ error: 'Voice URL or voice data is required' });
     }
 
     // Verify listener belongs to user
@@ -698,7 +772,7 @@ router.put('/:listener_id/voice-verification', authenticate, async (req, res) =>
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const result = await Listener.updateVoiceVerification(req.params.listener_id, voice_url);
+    const result = await Listener.updateVoiceVerification(req.params.listener_id, finalVoiceUrl);
 
     res.json({
       message: 'Voice verification updated successfully',

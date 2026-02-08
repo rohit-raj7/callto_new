@@ -43,6 +43,9 @@ class ApiConfig {
 
   static final String health = '$apiBase/health';
 
+  // Voice upload
+  static final String uploadVoice = '$apiBase/listeners/upload-voice';
+
   static final Duration timeout = const Duration(seconds: 60);
   static const int maxRetries = 3;
   static const Duration retryDelay = Duration(seconds: 2);

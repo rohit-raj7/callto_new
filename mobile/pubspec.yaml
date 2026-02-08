@@ -24,6 +24,8 @@ dependencies:
   socket_io_client: ^3.0.2
   intl: ^0.20.2
   web: ^1.1.0  # For WebRTC support on web platform
+  record: ^6.2.0
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../../services/listener_service.dart';
@@ -237,6 +239,42 @@ class _PaymentPageState extends State<PaymentPage> {
               ),
             );
           }
+        }
+      }
+
+      // Step 1c: Upload voice verification data via Cloudinary (if recorded)
+      final voiceBase64 = await storageService.getListenerVoiceBase64();
+      final voiceMimeType = await storageService.getListenerVoiceMimeType();
+      if (voiceBase64 != null && voiceBase64.isNotEmpty) {
+        // Decode base64 back to bytes for multipart upload
+        final Uint8List voiceBytes = base64Decode(voiceBase64);
+        final mime = voiceMimeType ?? 'audio/ogg';
+        final ext = mime.contains('m4a') ? 'm4a' : (mime.contains('wav') ? 'wav' : 'ogg');
+        final filename = 'voice_verification.$ext';
+
+        // Step A: Upload to Cloudinary via backend
+        final uploadResult = await listenerService.uploadVoiceFile(
+          fileBytes: voiceBytes,
+          filename: filename,
+          mimeType: mime,
+        );
+
+        if (uploadResult.success && uploadResult.message != null) {
+          final cloudinaryUrl = uploadResult.message!;
+          print('Voice uploaded to Cloudinary: $cloudinaryUrl');
+
+          // Step B: Save Cloudinary URL to listener record
+          final voiceResult = await listenerService.updateVoiceVerification(
+            listenerId: listenerId,
+            voiceUrl: cloudinaryUrl,
+          );
+          if (voiceResult.success) {
+            print('Voice verification saved successfully');
+          } else {
+            print('Warning: Failed to save voice URL: ${voiceResult.error}');
+          }
+        } else {
+          print('Warning: Failed to upload voice to Cloudinary: ${uploadResult.error}');
         }
       }
 
