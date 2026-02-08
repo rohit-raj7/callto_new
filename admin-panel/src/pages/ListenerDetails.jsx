@@ -156,7 +156,7 @@ const ListenerDetails = () => {
     const actualValue = value || 'N/A';
     
     return (
-      <div className="group">
+      <div className="group h-full">
         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
           {Icon && <Icon className="w-3.5 h-3.5" />}
           <span className="font-medium uppercase tracking-wide">{label}</span>
@@ -164,7 +164,7 @@ const ListenerDetails = () => {
         {copyable && value ? (
           <button
             onClick={() => handleCopyToClipboard(actualValue, fieldKey)}
-            className="flex items-center gap-2 w-full text-left px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border border-gray-200 dark:border-gray-700 transition-all group-hover:border-indigo-300 dark:group-hover:border-indigo-700"
+            className="flex items-center gap-2 w-full h-full text-left px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border border-gray-200 dark:border-gray-700 transition-all group-hover:border-indigo-300 dark:group-hover:border-indigo-700"
             title="Click to copy"
           >
             <span className="flex-1 text-sm font-medium text-gray-900 dark:text-white font-mono truncate">
@@ -177,9 +177,11 @@ const ListenerDetails = () => {
             )}
           </button>
         ) : (
-          <p className="text-sm font-medium text-gray-900 dark:text-white px-3 py-2">
-            {displayValue || 'N/A'}
-          </p>
+          <div className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">
+              {displayValue || 'N/A'}
+            </p>
+          </div>
         )}
       </div>
     );
@@ -263,6 +265,7 @@ const ListenerDetails = () => {
   const grossEarnings = parseFloat(stats?.total_earnings) || 0;
   const netEarnings = parseFloat((grossEarnings * (LISTENER_SHARE_PERCENT / 100)).toFixed(2));
   const platformFee = parseFloat((grossEarnings * (PLATFORM_COMMISSION_PERCENT / 100)).toFixed(2));
+  const verificationStatus = listener.verification_status || 'pending';
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 transition-colors">
@@ -415,146 +418,480 @@ const ListenerDetails = () => {
           />
         </div>
 
-        {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* Left Column - Contact & Personal Info */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Contact Information */}
+          <div className="lg:col-span-2">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Mail className="w-5 h-5 text-indigo-600" />
-                Contact Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InfoItem
-                  icon={Mail}
-                  label="Email Address"
-                  value={listener.email}
-                  copyable
-                  fieldKey="email"
-                />
-                <InfoItem
-                  icon={Phone}
-                  label="Phone Number"
-                  value={listener.phone_number}
-                  copyable
-                  fieldKey="phone_number"
-                />
-                <InfoItem
-                  icon={Phone}
-                  label="Mobile Number"
-                  value={listener.mobile_number}
-                  copyable
-                  fieldKey="mobile_number"
-                />
-                <InfoItem
-                  icon={MapPin}
-                  label="Location"
-                  value={listener.city && listener.country ? `${listener.city}, ${listener.country}` : null}
-                />
-              </div>
-            </div>
-
-            {/* Professional Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Briefcase className="w-5 h-5 text-indigo-600" />
-                Professional Details
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InfoItem
-                  icon={Award}
-                  label="Experience"
-                  value={listener.experience_years ? `${listener.experience_years} years` : null}
-                />
-                <InfoItem
-                  icon={GraduationCap}
-                  label="Education"
-                  value={listener.education}
-                />
-                <InfoItem
-                  icon={User}
-                  label="Age"
-                  value={listener.age?.toString()}
-                />
-                <InfoItem
-                  icon={Clock}
-                  label="Last Active"
-                  value={listener.last_active_at ? new Date(listener.last_active_at).toLocaleString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  }) : null}
-                />
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Verification Details</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">All listener data grouped for quick admin review</p>
+                </div>
+                <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold ${
+                  verificationStatus === 'approved'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
+                    : verificationStatus === 'rejected'
+                    ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                    : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
+                }`}>
+                  {verificationStatus === 'approved' ? (
+                    <CheckCircle className="w-4 h-4" />
+                  ) : verificationStatus === 'rejected' ? (
+                    <XCircle className="w-4 h-4" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4" />
+                  )}
+                  {verificationStatus.toUpperCase()}
+                </span>
               </div>
 
-              {/* Specialties */}
-              {listener.specialties && listener.specialties.length > 0 && (
-                <div className="mt-6">
-                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
-                    Specialties
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {listener.specialties.map((specialty, index) => (
-                      <span key={index} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-lg text-sm font-medium">
-                        <Heart className="w-3.5 h-3.5" />
-                        {specialty}
-                      </span>
-                    ))}
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                <div className="pb-6">
+                  <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                    <User className="w-4 h-4 text-indigo-600" />
+                    Basic Info
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InfoItem
+                      icon={User}
+                      label="Professional Name"
+                      value={listener.professional_name}
+                    />
+                    <InfoItem
+                      icon={User}
+                      label="Display Name"
+                      value={listener.display_name}
+                    />
+                    <InfoItem
+                      icon={User}
+                      label="Listener ID"
+                      value={listener.listener_id}
+                      copyable
+                      fieldKey="listener_id"
+                    />
+                    <InfoItem
+                      icon={User}
+                      label="Age"
+                      value={listener.age?.toString()}
+                    />
+                    <InfoItem
+                      icon={Calendar}
+                      label="Joined"
+                      value={listener.created_at ? new Date(listener.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null}
+                    />
+                    <InfoItem
+                      icon={MapPin}
+                      label="Location"
+                      value={listener.city && listener.country ? `${listener.city}, ${listener.country}` : null}
+                    />
                   </div>
                 </div>
-              )}
 
-              {/* Languages */}
-              {listener.languages && listener.languages.length > 0 && (
-                <div className="mt-4">
-                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
-                    Languages
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {listener.languages.map((language, index) => (
-                      <span key={index} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-sm font-medium">
-                        <Languages className="w-3.5 h-3.5" />
-                        {language}
-                      </span>
-                    ))}
+                <div className="py-6">
+                  <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                    <Mail className="w-4 h-4 text-indigo-600" />
+                    Contact Details
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InfoItem
+                      icon={Mail}
+                      label="Email Address"
+                      value={listener.email}
+                      copyable
+                      fieldKey="email"
+                    />
+                    <InfoItem
+                      icon={Phone}
+                      label="Phone Number"
+                      value={listener.phone_number}
+                      copyable
+                      fieldKey="phone_number"
+                    />
+                    <InfoItem
+                      icon={Phone}
+                      label="Mobile Number"
+                      value={listener.mobile_number}
+                      copyable
+                      fieldKey="mobile_number"
+                    />
                   </div>
                 </div>
-              )}
 
-              {/* Certifications */}
-              {listener.certifications && (
-                <div className="mt-4">
-                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
-                    Certifications
-                  </label>
-                  <p className="text-sm text-gray-900 dark:text-white px-3 py-2 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                    {listener.certifications}
-                  </p>
+                <div className="py-6">
+                  <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                    <MessageSquare className="w-4 h-4 text-indigo-600" />
+                    Profile Details
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InfoItem
+                      icon={GraduationCap}
+                      label="Education"
+                      value={listener.education}
+                    />
+                    <InfoItem
+                      icon={IndianRupee}
+                      label="Rate per Minute"
+                      value={listener.rate_per_minute ? `₹${listener.rate_per_minute}` : null}
+                    />
+                  </div>
+                  {listener.bio && (
+                    <div className="mt-6">
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
+                        About
+                      </label>
+                      <div className="px-3 py-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                          {listener.bio}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Bio */}
-            {listener.bio && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-indigo-600" />
-                  About
-                </h3>
-                <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                  {listener.bio}
-                </p>
+                <div className="py-6">
+                  <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                    <Briefcase className="w-4 h-4 text-indigo-600" />
+                    Experience / Skills
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InfoItem
+                      icon={Award}
+                      label="Experience"
+                      value={listener.experience_years ? `${listener.experience_years} years` : null}
+                    />
+                    <InfoItem
+                      icon={Clock}
+                      label="Last Active"
+                      value={listener.last_active_at ? new Date(listener.last_active_at).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) : null}
+                    />
+                  </div>
+
+                  {listener.specialties && listener.specialties.length > 0 && (
+                    <div className="mt-6">
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
+                        Specialties
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {listener.specialties.map((specialty, index) => (
+                          <span key={index} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-lg text-sm font-medium">
+                            <Heart className="w-3.5 h-3.5" />
+                            {specialty}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {listener.languages && listener.languages.length > 0 && (
+                    <div className="mt-4">
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
+                        Languages
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {listener.languages.map((language, index) => (
+                          <span key={index} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-sm font-medium">
+                            <Languages className="w-3.5 h-3.5" />
+                            {language}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {listener.certifications && (
+                    <div className="mt-4">
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
+                        Certifications
+                      </label>
+                      <div className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-900 dark:text-white">
+                          {listener.certifications}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {listener?.payment_info && (
+                  <div className="py-6">
+                    <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                      <CreditCard className="w-4 h-4 text-indigo-600" />
+                      Documents
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <InfoItem
+                        icon={Building2}
+                        label="Payment Method"
+                        value={listener.payment_info.payment_method?.toUpperCase()}
+                      />
+                      {listener.payment_info.payment_method === 'upi' && (
+                        <>
+                          <InfoItem
+                            icon={CreditCard}
+                            label="UPI ID"
+                            value={listener.payment_info.upi_id}
+                            copyable
+                            fieldKey="upi_id"
+                          />
+                          <InfoItem
+                            icon={Shield}
+                            label="Aadhaar"
+                            value={listener.payment_info.aadhaar_number}
+                            copyable
+                            masked
+                            fieldKey="aadhaar_number"
+                          />
+                          <InfoItem
+                            icon={Shield}
+                            label="PAN Number"
+                            value={listener.payment_info.pan_number}
+                            copyable
+                            masked
+                            fieldKey="pan_number"
+                          />
+                          <InfoItem
+                            icon={User}
+                            label="Name as per PAN"
+                            value={listener.payment_info.name_as_per_pan}
+                            copyable
+                            fieldKey="name_as_per_pan"
+                          />
+                        </>
+                      )}
+                      {listener.payment_info.payment_method === 'bank' && (
+                        <>
+                          <InfoItem
+                            icon={Building2}
+                            label="Bank Name"
+                            value={listener.payment_info.bank_name}
+                            copyable
+                            fieldKey="bank_name"
+                          />
+                          <InfoItem
+                            icon={User}
+                            label="Account Holder"
+                            value={listener.payment_info.account_holder_name}
+                            copyable
+                            fieldKey="account_holder_name"
+                          />
+                          <InfoItem
+                            icon={CreditCard}
+                            label="Account Number"
+                            value={listener.payment_info.account_number}
+                            copyable
+                            masked
+                            fieldKey="account_number"
+                          />
+                          <InfoItem
+                            icon={Building2}
+                            label="IFSC Code"
+                            value={listener.payment_info.ifsc_code}
+                            copyable
+                            fieldKey="ifsc_code"
+                          />
+                          <InfoItem
+                            icon={Shield}
+                            label="PAN/Aadhaar"
+                            value={listener.payment_info.pan_aadhaar_bank}
+                            copyable
+                            masked
+                            fieldKey="pan_aadhaar_bank"
+                          />
+                        </>
+                      )}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                        <Eye className="w-3.5 h-3.5" />
+                        Click on any value to copy. Sensitive data is masked.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-6">
+                  <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                    <Shield className="w-4 h-4 text-indigo-600" />
+                    Verification Status
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className={`p-4 rounded-xl border ${
+                      verificationStatus === 'approved'
+                        ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20'
+                        : verificationStatus === 'rejected'
+                        ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
+                        : 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20'
+                    }`}>
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+                        {verificationStatus === 'approved' ? (
+                          <CheckCircle className="w-3.5 h-3.5" />
+                        ) : verificationStatus === 'rejected' ? (
+                          <XCircle className="w-3.5 h-3.5" />
+                        ) : (
+                          <AlertCircle className="w-3.5 h-3.5" />
+                        )}
+                        Status
+                      </div>
+                      <div className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">{verificationStatus.toUpperCase()}</div>
+                    </div>
+                    <div className={`p-4 rounded-xl border ${
+                      listener.is_available
+                        ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
+                        : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40'
+                    }`}>
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+                        <Headphones className="w-3.5 h-3.5" />
+                        Availability
+                      </div>
+                      <div className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
+                        {listener.is_available ? 'Available' : 'Unavailable'}
+                      </div>
+                    </div>
+                    <div className={`p-4 rounded-xl border ${
+                      listener.is_online
+                        ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20'
+                        : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40'
+                    }`}>
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+                        <Activity className="w-3.5 h-3.5" />
+                        Online Status
+                      </div>
+                      <div className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
+                        {listener.is_online ? 'Online' : 'Offline'}
+                      </div>
+                    </div>
+                    <div className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+                        <Clock className="w-3.5 h-3.5" />
+                        Last Active
+                      </div>
+                      <div className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
+                        {listener.last_active_at ? new Date(listener.last_active_at).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Right Column - Activity & Payment */}
           <div className="space-y-6">
-           
-             
-            {/* Voice Verification */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-5 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-indigo-600" />
+                Verification Control
+              </h3>
+              
+              <div className="mb-5 p-4 rounded-xl border-2" style={{
+                borderColor: 
+                  (listener.verification_status || 'pending') === 'approved' ? '#10b981' :
+                  (listener.verification_status || 'pending') === 'rejected' ? '#ef4444' : '#f59e0b',
+                backgroundColor: 
+                  (listener.verification_status || 'pending') === 'approved' ? '#ecfdf5' :
+                  (listener.verification_status || 'pending') === 'rejected' ? '#fef2f2' : '#fffbeb'
+              }}>
+                <div className="flex items-center gap-3">
+                  {(listener.verification_status || 'pending') === 'approved' ? (
+                    <div className="p-2 bg-green-500 rounded-lg">
+                      <CheckCircle className="w-5 h-5 text-white" />
+                    </div>
+                  ) : (listener.verification_status || 'pending') === 'rejected' ? (
+                    <div className="p-2 bg-red-500 rounded-lg">
+                      <XCircle className="w-5 h-5 text-white" />
+                    </div>
+                  ) : (
+                    <div className="p-2 bg-yellow-500 rounded-lg">
+                      <AlertCircle className="w-5 h-5 text-white" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                      Status: {(listener.verification_status || 'pending').toUpperCase()}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                      {(listener.verification_status || 'pending') === 'approved' 
+                        ? 'Listener is visible to users and can receive calls/chats'
+                        : (listener.verification_status || 'pending') === 'rejected'
+                        ? 'Listener is hidden and cannot receive calls/chats'
+                        : 'Awaiting verification - hidden from users'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {verificationSuccess && (
+                <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg animate-pulse">
+                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400 text-sm font-medium">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Verification status updated successfully!</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="mb-4">
+                <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 block">
+                  Change Verification Status
+                </label>
+                <div className="bg-gray-100 dark:bg-gray-700 p-1.5 rounded-xl flex gap-1.5">
+                  <button
+                    onClick={() => handleVerificationStatusChange('approved')}
+                    disabled={updatingVerification}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200 border ${
+                      (listener.verification_status || 'pending') === 'approved'
+                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/30 border-green-500 scale-[1.02]'
+                        : 'text-gray-600 dark:text-gray-300 border-transparent hover:bg-white/60 dark:hover:bg-gray-600'
+                    } ${updatingVerification ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Approved</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleVerificationStatusChange('pending')}
+                    disabled={updatingVerification}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200 border ${
+                      (listener.verification_status || 'pending') === 'pending'
+                        ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-500/30 border-yellow-500 scale-[1.02]'
+                        : 'text-gray-600 dark:text-gray-300 border-transparent hover:bg-white/60 dark:hover:bg-gray-600'
+                    } ${updatingVerification ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <AlertCircle className="w-4 h-4" />
+                    <span>Pending</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleVerificationStatusChange('rejected')}
+                    disabled={updatingVerification}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200 border ${
+                      (listener.verification_status || 'pending') === 'rejected'
+                        ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 border-red-500 scale-[1.02]'
+                        : 'text-gray-600 dark:text-gray-300 border-transparent hover:bg-white/60 dark:hover:bg-gray-600'
+                    } ${updatingVerification ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>Rejected</span>
+                  </button>
+                </div>
+                
+                {updatingVerification && (
+                  <div className="mt-3 flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Updating status...</span>
+                  </div>
+                )}
+              </div>
+ 
+            </div>
+
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <Mic className="w-5 h-5 text-indigo-600" />
@@ -668,221 +1005,6 @@ const ListenerDetails = () => {
               )}
             </div>
 
-            {/* Verification Status Control */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-5 flex items-center gap-2">
-                <Shield className="w-5 h-5 text-indigo-600" />
-                Verification Control
-              </h3>
-              
-              {/* Current Status Display */}
-              <div className="mb-5 p-4 rounded-xl border-2" style={{
-                borderColor: 
-                  (listener.verification_status || 'pending') === 'approved' ? '#10b981' :
-                  (listener.verification_status || 'pending') === 'rejected' ? '#ef4444' : '#f59e0b',
-                backgroundColor: 
-                  (listener.verification_status || 'pending') === 'approved' ? '#ecfdf5' :
-                  (listener.verification_status || 'pending') === 'rejected' ? '#fef2f2' : '#fffbeb'
-              }}>
-                <div className="flex items-center gap-3">
-                  {(listener.verification_status || 'pending') === 'approved' ? (
-                    <div className="p-2 bg-green-500 rounded-lg">
-                      <CheckCircle className="w-5 h-5 text-white" />
-                    </div>
-                  ) : (listener.verification_status || 'pending') === 'rejected' ? (
-                    <div className="p-2 bg-red-500 rounded-lg">
-                      <XCircle className="w-5 h-5 text-white" />
-                    </div>
-                  ) : (
-                    <div className="p-2 bg-yellow-500 rounded-lg">
-                      <AlertCircle className="w-5 h-5 text-white" />
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                      Status: {(listener.verification_status || 'pending').toUpperCase()}
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                      {(listener.verification_status || 'pending') === 'approved' 
-                        ? 'Listener is visible to users and can receive calls/chats'
-                        : (listener.verification_status || 'pending') === 'rejected'
-                        ? 'Listener is hidden and cannot receive calls/chats'
-                        : 'Awaiting verification - hidden from users'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Success Message */}
-              {verificationSuccess && (
-                <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg animate-pulse">
-                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400 text-sm font-medium">
-                    <CheckCircle className="w-4 h-4" />
-                    <span>Verification status updated successfully!</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Segmented Control Toggle */}
-              <div className="mb-4">
-                <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 block">
-                  Change Verification Status
-                </label>
-                <div className="bg-gray-100 dark:bg-gray-700 p-1.5 rounded-xl flex gap-1.5">
-                  {/* Approved Option */}
-                  <button
-                    onClick={() => handleVerificationStatusChange('approved')}
-                    disabled={updatingVerification}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                      (listener.verification_status || 'pending') === 'approved'
-                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/30 scale-[1.02]'
-                        : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-600'
-                    } ${updatingVerification ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    <span>Approved</span>
-                  </button>
-
-                  {/* Pending Option */}
-                  <button
-                    onClick={() => handleVerificationStatusChange('pending')}
-                    disabled={updatingVerification}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                      (listener.verification_status || 'pending') === 'pending'
-                        ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-500/30 scale-[1.02]'
-                        : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-600'
-                    } ${updatingVerification ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                  >
-                    <AlertCircle className="w-4 h-4" />
-                    <span>Pending</span>
-                  </button>
-
-                  {/* Rejected Option */}
-                  <button
-                    onClick={() => handleVerificationStatusChange('rejected')}
-                    disabled={updatingVerification}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                      (listener.verification_status || 'pending') === 'rejected'
-                        ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 scale-[1.02]'
-                        : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-600'
-                    } ${updatingVerification ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                  >
-                    <XCircle className="w-4 h-4" />
-                    <span>Rejected</span>
-                  </button>
-                </div>
-                
-                {/* Loading Indicator */}
-                {updatingVerification && (
-                  <div className="mt-3 flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                    <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span>Updating status...</span>
-                  </div>
-                )}
-              </div>
- 
-            </div>
-
-            {/* Payment Information */}
-            {listener?.payment_info && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <CreditCard className="w-5 h-5 text-indigo-600" />
-                  Payment Details
-                </h3>
-                <div className="space-y-4">
-                  <InfoItem
-                    icon={Building2}
-                    label="Payment Method"
-                    value={listener.payment_info.payment_method?.toUpperCase()}
-                  />
-                  
-                  {listener.payment_info.payment_method === 'upi' && (
-                    <>
-                      <InfoItem
-                        icon={CreditCard}
-                        label="UPI ID"
-                        value={listener.payment_info.upi_id}
-                        copyable
-                        fieldKey="upi_id"
-                      />
-                      <InfoItem
-                        icon={Shield}
-                        label="Aadhaar"
-                        value={listener.payment_info.aadhaar_number}
-                        copyable
-                        masked
-                        fieldKey="aadhaar_number"
-                      />
-                      <InfoItem
-                        icon={Shield}
-                        label="PAN Number"
-                        value={listener.payment_info.pan_number}
-                        copyable
-                        masked
-                        fieldKey="pan_number"
-                      />
-                      <InfoItem
-                        icon={User}
-                        label="Name as per PAN"
-                        value={listener.payment_info.name_as_per_pan}
-                        copyable
-                        fieldKey="name_as_per_pan"
-                      />
-                    </>
-                  )}
-                  
-                  {listener.payment_info.payment_method === 'bank' && (
-                    <>
-                      <InfoItem
-                        icon={Building2}
-                        label="Bank Name"
-                        value={listener.payment_info.bank_name}
-                        copyable
-                        fieldKey="bank_name"
-                      />
-                      <InfoItem
-                        icon={User}
-                        label="Account Holder"
-                        value={listener.payment_info.account_holder_name}
-                        copyable
-                        fieldKey="account_holder_name"
-                      />
-                      <InfoItem
-                        icon={CreditCard}
-                        label="Account Number"
-                        value={listener.payment_info.account_number}
-                        copyable
-                        masked
-                        fieldKey="account_number"
-                      />
-                      <InfoItem
-                        icon={Building2}
-                        label="IFSC Code"
-                        value={listener.payment_info.ifsc_code}
-                        copyable
-                        fieldKey="ifsc_code"
-                      />
-                      <InfoItem
-                        icon={Shield}
-                        label="PAN/Aadhaar"
-                        value={listener.payment_info.pan_aadhaar_bank}
-                        copyable
-                        masked
-                        fieldKey="pan_aadhaar_bank"
-                      />
-                    </>
-                  )}
-                  
-                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
-                      <Eye className="w-3.5 h-3.5" />
-                      Click on any value to copy. Sensitive data is masked.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
