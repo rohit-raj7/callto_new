@@ -142,10 +142,13 @@ class UserService {
     final response = await _api.get(ApiConfig.userWallet);
 
     if (response.isSuccess) {
+      final data = response.data is Map ? response.data as Map : <String, dynamic>{};
+      final wallet = data['wallet'] is Map ? data['wallet'] as Map : data;
+      final transactions = wallet['transactions'] ?? data['transactions'] ?? [];
       return WalletResult(
         success: true,
-        balance: _safeParseDouble(response.data['balance']),
-        transactions: response.data['transactions'] ?? [],
+        balance: _safeParseDouble(wallet['balance']),
+        transactions: transactions is List ? transactions : [],
       );
     } else {
       return WalletResult(
@@ -156,10 +159,14 @@ class UserService {
   }
 
   /// Add balance to wallet
-  Future<WalletResult> addBalance(double amount) async {
+  Future<WalletResult> addBalance(double amount, {String? paymentId}) async {
     final response = await _api.post(
       '${ApiConfig.userWallet}/add',
-      body: {'amount': amount},
+      body: {
+        'amount': amount,
+        if (paymentId != null) 'payment_id': paymentId,
+        'payment_method': 'razorpay',
+      },
     );
 
     if (response.isSuccess) {

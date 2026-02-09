@@ -208,6 +208,53 @@ class User {
     
     return result.rows[0];
   }
+
+  // Add balance to user wallet
+  static async addBalance(user_id, amount, paymentDetails = {}) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Ensure wallet exists first
+      await this.getWallet(user_id);
+
+      // Update wallet balance
+      const walletQuery = `
+        UPDATE wallets 
+        SET balance = balance + $2, updated_at = NOW()
+        WHERE user_id = $1
+        RETURNING *
+      `;
+      const walletResult = await client.query(walletQuery, [user_id, amount]);
+
+      // Create transaction record
+      const transactionQuery = `
+        INSERT INTO transactions (
+          user_id, transaction_type, amount, currency, description,
+          payment_method, payment_gateway_id, status
+        )
+        VALUES ($1, 'credit', $2, $3, $4, $5, $6, 'completed')
+        RETURNING *
+      `;
+      const transactionValues = [
+        user_id,
+        amount,
+        paymentDetails.currency || 'INR',
+        paymentDetails.description || 'Wallet recharge',
+        paymentDetails.payment_method || 'razorpay',
+        paymentDetails.payment_id || null
+      ];
+      await client.query(transactionQuery, transactionValues);
+
+      await client.query('COMMIT');
+      return walletResult.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }
 
 export default User;

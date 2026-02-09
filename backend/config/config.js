@@ -73,6 +73,10 @@ export default {
     appId: process.env.AGORA_APP_ID,
     appCertificate: process.env.AGORA_APP_CERT,
     tokenExpirySeconds: 60 * 60 // 1 hour
+  },
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID,
+    keySecret: process.env.RAZORPAY_KEY_SECRET
   }
 };
 

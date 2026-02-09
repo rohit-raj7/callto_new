@@ -1,14 +1,19 @@
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ApiConfig {
 //   static final String baseUrl = kDebugMode
 //       ? (kIsWeb 
 //           ? 'http://localhost:3002' 
 //           : (defaultTargetPlatform == TargetPlatform.android 
 //               ? 'http://10.0.2.2:3002' 
-//               : 'http://localhost:3002'))
+//               : 'http://localhost:3002')t)
 //       : 'https://callto-4.onrender.com';
 // 
-  static final String baseUrl = 'https://call-to.onrender.com';
+  static final String baseUrl =
+      dotenv.env['API_BASE_URL']?.trim().isNotEmpty == true
+          ? dotenv.env['API_BASE_URL']!.trim()
+          : 'https://call-to.onrender.com';
 
   // static final String baseUrl ='http://localhost:3002';
       

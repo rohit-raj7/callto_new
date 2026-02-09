@@ -1,23 +1,7 @@
 import 'package:flutter/material.dart';
-
-void main() => runApp(const MyApp());
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Wallet Demo',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'Roboto',
-        scaffoldBackgroundColor: Colors.white,
-      ),
-      home: const WalletScreen(),
-    );
-  }
-}
+import '../../../services/payment_service.dart';
+import '../../../services/user_service.dart';
+import '../../../services/storage_service.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -28,6 +12,15 @@ class WalletScreen extends StatefulWidget {
 
 class _WalletScreenState extends State<WalletScreen> {
   int? _selectedIndex = 3;
+  final PaymentService _paymentService = PaymentService();
+  final UserService _userService = UserService();
+  final StorageService _storageService = StorageService();
+  bool _isProcessing = false;
+  double _walletBalance = 0.0;
+  String? _prefillEmail;
+  String? _prefillContact;
+
+  static const double _taxRate = 0.31;
 
   final List<Map<String, dynamic>> packs = [
     {'amount': 25, 'extra': 0, 'badge': null},
@@ -41,6 +34,38 @@ class _WalletScreenState extends State<WalletScreen> {
     {'amount': 1900, 'extra': 35, 'badge': null},
     {'amount': 9800, 'extra': 35, 'badge': null},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _paymentService.initialize();
+    _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    _paymentService.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUserData() async {
+    final email = await _storageService.getEmail();
+    final mobile = await _storageService.getMobile();
+    final walletResult = await _userService.getWallet();
+    if (!mounted) return;
+    setState(() {
+      _prefillEmail = email;
+      _prefillContact = mobile;
+      if (walletResult.success) {
+        _walletBalance = walletResult.balance;
+      }
+    });
+  }
+
+  void _setProcessing(bool value) {
+    if (!mounted) return;
+    setState(() => _isProcessing = value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,15 +133,15 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Text(
+                    children: [
+                      const Text(
                         'My Balance',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w500),
                       ),
                       Text(
-                        '₹0.00',
-                        style: TextStyle(
+                        '₹${_walletBalance.toStringAsFixed(2)}',
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: Colors.pink,
@@ -250,10 +275,12 @@ class _WalletScreenState extends State<WalletScreen> {
                 color: Colors.green.shade50,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
-                  'Get ₹28 Extra cashback on this pack',
-                  style: TextStyle(color: Colors.green),
+                  _selectedIndex != null && (packs[_selectedIndex!]['extra'] as int) > 0
+                      ? 'Get ₹${((packs[_selectedIndex!]['amount'] as int) * (packs[_selectedIndex!]['extra'] as int) / 100).toStringAsFixed(0)} Extra cashback on this pack'
+                      : 'Select a pack to see cashback',
+                  style: const TextStyle(color: Colors.green),
                 ),
               ),
             ),
@@ -268,25 +295,171 @@ class _WalletScreenState extends State<WalletScreen> {
                     borderRadius: BorderRadius.circular(28),
                   ),
                 ),
-                onPressed: () {
-                  final selected =
-                      _selectedIndex != null ? packs[_selectedIndex!] : null;
-                  final amount =
-                      selected != null ? selected['amount'] : 'none';
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text('Adding ₹$amount to wallet (demo)')),
-                  );
-                },
-                child: const Text(
-                  'Add Balance',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
-                ),
+                onPressed: _isProcessing
+                    ? null
+                    : () {
+                        if (_selectedIndex == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please select a pack')),
+                          );
+                          return;
+                        }
+                        final selected = packs[_selectedIndex!];
+                        final amount = (selected['amount'] as int).toDouble();
+                        final taxDisplay = (amount * _taxRate * 100).round() / 100;
+                        final payableAmount = ((amount + taxDisplay) * 100).round() / 100;
+                        _initiateRazorpayPayment(amount, payableAmount);
+                      },
+                child: _isProcessing
+                    ? const SizedBox(
+                        height: 20, width: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text(
+                        'Add Balance',
+                        style: TextStyle(fontSize: 16, color: Colors.white),
+                      ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  // ===== Razorpay Payment Flow =====
+  void _initiateRazorpayPayment(double rechargeAmount, double payableAmount) {
+    final amountInPaise = (payableAmount * 100).round();
+    _setProcessing(true);
+
+    _paymentService.openCheckout(
+      context: context,
+      amountInPaise: amountInPaise,
+      name: 'Call To',
+      description: 'Wallet Recharge ₹${rechargeAmount.toStringAsFixed(0)}',
+      email: _prefillEmail,
+      contact: _prefillContact,
+      onSuccess: (response) {
+        _setProcessing(false);
+        final paymentId = response?.paymentId?.toString() ?? 'N/A';
+        _onPaymentSuccess(paymentId, rechargeAmount);
+      },
+      onError: (error) {
+        _setProcessing(false);
+        final msg = error?.message?.toString() ?? 'Payment failed. Please try again.';
+        _showFailureDialog(msg);
+      },
+      onExternalWallet: (wallet) {
+        _setProcessing(false);
+        if (!mounted) return;
+        final name = wallet?.walletName?.toString() ?? 'external wallet';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Redirecting to $name...'),
+            backgroundColor: Colors.pinkAccent,
+          ),
+        );
+      },
+      onCheckoutError: (message) {
+        _setProcessing(false);
+        _showFailureDialog(message);
+      },
+    );
+  }
+
+  Future<void> _onPaymentSuccess(String paymentId, double rechargeAmount) async {
+    final result = await _userService.addBalance(rechargeAmount, paymentId: paymentId);
+    if (!mounted) return;
+
+    if (result.success) {
+      setState(() {
+        _walletBalance = result.balance;
+      });
+      _showSuccessDialog(paymentId, rechargeAmount);
+    } else {
+      _showFailureDialog('Payment received but wallet sync failed. Please contact support.');
+    }
+  }
+
+  void _showSuccessDialog(String paymentId, double amount) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.check_circle, color: Colors.green, size: 64),
+              const SizedBox(height: 16),
+              const Text('Payment Successful!',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
+              const SizedBox(height: 10),
+              Text('₹${amount.toStringAsFixed(2)} added to your wallet',
+                  style: const TextStyle(fontSize: 15, color: Colors.black54)),
+              const SizedBox(height: 8),
+              Text('Transaction ID: $paymentId',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.pink,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Done', style: TextStyle(color: Colors.white)),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showFailureDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.redAccent, size: 64),
+              const SizedBox(height: 16),
+              const Text('Payment Failed',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+              const SizedBox(height: 10),
+              Text(message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, color: Colors.black54)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Close'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogCtx);
+                if (_selectedIndex != null) {
+                  final amount = (packs[_selectedIndex!]['amount'] as int).toDouble();
+                  final taxDisplay = (amount * _taxRate * 100).round() / 100;
+                  final payableAmount = ((amount + taxDisplay) * 100).round() / 100;
+                  _initiateRazorpayPayment(amount, payableAmount);
+                }
+              },
+              child: const Text('Retry', style: TextStyle(color: Colors.pink)),
+            ),
+          ],
+        );
+      },
     );
   }
 }

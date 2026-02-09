@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../nav/profile.dart';
 import '../nav/profile/payment_methods.dart';
 import '../../services/storage_service.dart';
+import '../../services/user_service.dart';
 
 class TopBar extends StatefulWidget {
   const TopBar({super.key});
@@ -12,11 +13,23 @@ class TopBar extends StatefulWidget {
 
 class _TopBarState extends State<TopBar> {
   late Future<String?> _avatarFuture;
+  final UserService _userService = UserService();
+  double _walletBalance = 0.0;
 
   @override
   void initState() {
     super.initState();
     _avatarFuture = StorageService().getAvatarUrl();
+    _loadWalletBalance();
+  }
+
+  Future<void> _loadWalletBalance() async {
+    final result = await _userService.getWallet();
+    if (mounted && result.success) {
+      setState(() {
+        _walletBalance = result.balance;
+      });
+    }
   }
 
   @override
@@ -52,6 +65,8 @@ class _TopBarState extends State<TopBar> {
                             _avatarFuture = StorageService().getAvatarUrl();
                           });
                         }
+                        // Reload wallet balance when returning from profile
+                        _loadWalletBalance();
                       },
                       child: FutureBuilder<String?>(
                         future: _avatarFuture,
@@ -78,13 +93,15 @@ class _TopBarState extends State<TopBar> {
 
                     // 💰 Wallet Balance (RIGHT of Profile)
                     GestureDetector(
-                      onTap: () {
-                        Navigator.push(
+                      onTap: () async {
+                        await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => const PaymentMethodsPage(),
                           ),
                         );
+                        // Reload wallet balance when returning
+                        _loadWalletBalance();
                       },
                       child: Container(
                         decoration: BoxDecoration(
@@ -100,17 +117,17 @@ class _TopBarState extends State<TopBar> {
                           vertical: 6,
                         ),
                         child: Row(
-                          children: const [
+                          children: [
                             Text(
-                              "₹0.00",
-                              style: TextStyle(
+                              "₹${_walletBalance.toStringAsFixed(2)}",
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            SizedBox(width: 6),
-                            Icon(
+                            const SizedBox(width: 6),
+                            const Icon(
                               Icons.add,
                               color: Colors.white,
                               size: 18,

@@ -71,33 +71,6 @@ router.put('/profile', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/users/:user_id
-// Get user by ID (public profile)
-router.get('/:user_id', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.user_id);
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Return limited public info
-    const publicProfile = {
-      user_id: user.user_id,
-      display_name: user.display_name,
-      avatar_url: user.avatar_url,
-      city: user.city,
-      country: user.country,
-      bio: user.bio
-    };
-
-    res.json({ user: publicProfile });
-  } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ error: 'Failed to fetch user' });
-  }
-});
-
 // POST /api/users/languages
 // Add language preference
 router.post('/languages', authenticate, async (req, res) => {
@@ -168,6 +141,35 @@ router.get('/wallet', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Get wallet error:', error);
     res.status(500).json({ error: 'Failed to fetch wallet' });
+  }
+});
+
+// POST /api/users/wallet/add
+// Add balance to wallet after successful payment
+router.post('/wallet/add', authenticate, async (req, res) => {
+  try {
+    const { amount, payment_id, payment_method, description } = req.body;
+    const parsedAmount = Number(amount);
+
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ error: 'Valid amount is required' });
+    }
+
+    const paymentDetails = {
+      payment_id,
+      payment_method: payment_method || 'razorpay',
+      description: description || 'Wallet recharge',
+      currency: 'INR'
+    };
+
+    const wallet = await User.addBalance(req.userId, parsedAmount, paymentDetails);
+    res.json({
+      message: 'Balance added successfully',
+      balance: wallet.balance,
+    });
+  } catch (error) {
+    console.error('Add balance error:', error);
+    res.status(500).json({ error: 'Failed to add balance' });
   }
 });
 
@@ -320,6 +322,33 @@ router.delete('/:user_id', authenticateAdmin, async (req, res) => {
   } catch (error) {
     console.error('Delete user error:', error);
     res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// GET /api/users/:user_id
+// Get user by ID (public profile) — MUST be last to avoid catching /wallet, /favorites, etc.
+router.get('/:user_id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.user_id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Return limited public info
+    const publicProfile = {
+      user_id: user.user_id,
+      display_name: user.display_name,
+      avatar_url: user.avatar_url,
+      city: user.city,
+      country: user.country,
+      bio: user.bio
+    };
+
+    res.json({ user: publicProfile });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Failed to fetch user' });
   }
 });
 

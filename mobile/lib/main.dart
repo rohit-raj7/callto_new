@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:async';
 import 'login/login.dart';
 import 'gender/gender_selection.dart';
@@ -27,8 +28,9 @@ void ensureGlobalCallHandler() {
   _ConnectoAppState._instance?._initializeGlobalCallHandler();
 }
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
   runApp(const ConnectoApp());
 }
 

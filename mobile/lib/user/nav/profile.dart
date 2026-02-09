@@ -17,6 +17,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final StorageService _storageService = StorageService();
+  final UserService _userService = UserService();
   String? displayName;
   String? city;
   String? avatarUrl;
@@ -25,6 +26,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String? dateOfBirth;
   String? mobileNumber;
   bool _isEditMode = false;
+  double _walletBalance = 0.0;
 
   // Controllers for edit mode
   late TextEditingController _nameController;
@@ -88,6 +90,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadUserData() async {
     final data = await _storageService.getUserFormData();
+    final walletResult = await _userService.getWallet();
     setState(() {
       displayName = data['displayName'] ?? 'User';
       city = data['city'] ?? 'Not specified';
@@ -100,6 +103,9 @@ class _ProfilePageState extends State<ProfilePage> {
       _cityController.text = city ?? '';
       _dobController.text = dateOfBirth ?? '';
       _mobileController.text = mobileNumber ?? '';
+      if (walletResult.success) {
+        _walletBalance = walletResult.balance;
+      }
       if (avatarUrl != null) {
         _selectedAvatarIndex = avatarImages.indexOf(avatarUrl!);
         if (_selectedAvatarIndex == -1) _selectedAvatarIndex = null;
@@ -211,13 +217,15 @@ class _ProfilePageState extends State<ProfilePage> {
             }
           },
         ),
+
+        // // 💰 Wallet Balance 
         actions: !_isEditMode
             ? [
                 Padding(
                   padding: const EdgeInsets.only(right: 12.0),
                   child: Row(
                     children: [
-                      // Stylish ₹0.00 badge
+                      // Stylish wallet balance badge
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.pinkAccent,
@@ -234,9 +242,9 @@ class _ProfilePageState extends State<ProfilePage> {
                           horizontal: 12,
                           vertical: 6,
                         ),
-                        child: const Text(
-                          "₹0.00",
-                          style: TextStyle(
+                        child: Text(
+                          "₹${_walletBalance.toStringAsFixed(2)}",
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -327,7 +335,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     radius: 40,
                     backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
                         ? AssetImage(avatarUrl!)
-                        : const AssetImage('assets/images/user.png'),
+                        : const AssetImage('assets/images/male.jpg'),
                   ),
                 ),
 
@@ -447,14 +455,16 @@ class _ProfilePageState extends State<ProfilePage> {
                           // Add Balance Button
                           Expanded(
                             child: InkWell(
-                              onTap: () {
-                                Navigator.push(
+                              onTap: () async {
+                                await Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) =>
                                         const PaymentMethodsPage(),
                                   ),
                                 );
+                                // Reload wallet balance when returning
+                                _loadUserData();
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -517,11 +527,13 @@ class _ProfilePageState extends State<ProfilePage> {
           _buildListTile(
             Icons.swap_horiz,
             "Transactions",
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const WalletScreen()),
               );
+              // Reload wallet balance when returning
+              _loadUserData();
             },
           ),
 

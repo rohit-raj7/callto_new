@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../services/payment_service.dart';
+import '../../../services/storage_service.dart';
+import '../../../services/user_service.dart';
 
 class PaymentMethodsPage extends StatefulWidget {
   const PaymentMethodsPage({super.key});
@@ -10,6 +13,14 @@ class PaymentMethodsPage extends StatefulWidget {
 class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
   int? _selectedPayment;
   final TextEditingController _amountController = TextEditingController();
+  final PaymentService _paymentService = PaymentService();
+  final StorageService _storageService = StorageService();
+  final UserService _userService = UserService();
+  bool _isProcessing = false;
+  String? _prefillEmail;
+  String? _prefillContact;
+  double? _pendingAmount;
+  int? _pendingAmountInPaise;
 
   final List<Map<String, dynamic>> paymentMethods = [
     {
@@ -63,9 +74,186 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _amountController.addListener(_handleAmountChange);
+    _paymentService.initialize();
+    _loadPrefill();
+  }
+
+  Future<void> _loadPrefill() async {
+    final email = await _storageService.getEmail();
+    final mobile = await _storageService.getMobile();
+    if (!mounted) return;
+    setState(() {
+      _prefillEmail = email;
+      _prefillContact = mobile;
+    });
+  }
+
+  void _handleAmountChange() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
   void dispose() {
+    _amountController.removeListener(_handleAmountChange);
     _amountController.dispose();
+    _paymentService.dispose();
     super.dispose();
+  }
+
+  void _setProcessing(bool value) {
+    if (!mounted) return;
+    setState(() {
+      _isProcessing = value;
+    });
+  }
+
+  double? _parseAmount() {
+    final amountText = _amountController.text.trim();
+    final amountValue = double.tryParse(amountText);
+    if (amountValue == null || amountValue <= 0) {
+      return null;
+    }
+    return amountValue;
+  }
+
+  Future<void> _syncWallet(double amountValue) async {
+    final result = await _userService.addBalance(amountValue);
+    if (!mounted) return;
+    if (!result.success) {
+      _showSyncFailedDialog(result.error ?? 'Wallet sync failed');
+      return;
+    }
+  }
+
+  void _showSuccessDialog(String paymentId) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Top-up successful', style: TextStyle(color: Colors.pinkAccent)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Payment successful and is being verified.'),
+              const SizedBox(height: 12),
+              Text('Transaction ID: $paymentId'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Done'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showFailureDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Payment failed', style: TextStyle(color: Colors.redAccent)),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                final amountValue = _pendingAmount;
+                final amountInPaise = _pendingAmountInPaise;
+                if (amountValue != null && amountInPaise != null) {
+                  _startCheckout(amountValue, amountInPaise);
+                }
+              },
+              child: const Text('Retry'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showSyncFailedDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Wallet sync failed', style: TextStyle(color: Colors.redAccent)),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                final amountValue = _pendingAmount;
+                if (amountValue != null) {
+                  _syncWallet(amountValue);
+                }
+              },
+              child: const Text('Retry Sync'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _startCheckout(double amountValue, int amountInPaise) {
+    _pendingAmount = amountValue;
+    _pendingAmountInPaise = amountInPaise;
+    _setProcessing(true);
+    _paymentService.openCheckout(
+      context: context,
+      amountInPaise: amountInPaise,
+      name: 'Call To',
+      description: 'Wallet Top-Up',
+      email: _prefillEmail,
+      contact: _prefillContact,
+      onSuccess: (response) {
+        _setProcessing(false);
+        final paymentId = response?.paymentId?.toString() ?? 'N/A';
+        _showSuccessDialog(paymentId);
+        _syncWallet(amountValue);
+      },
+      onError: (error) {
+        _setProcessing(false);
+        final msg = error?.message?.toString() ?? 'Payment failed';
+        _showFailureDialog(msg);
+      },
+      onExternalWallet: (wallet) {
+        _setProcessing(false);
+        if (!mounted) return;
+        final name = wallet?.walletName?.toString() ?? 'Wallet';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('External wallet: $name'),
+            backgroundColor: Colors.pinkAccent,
+          ),
+        );
+      },
+      onCheckoutError: (message) {
+        _setProcessing(false);
+        _showFailureDialog(message);
+      },
+    );
   }
 
   @override
@@ -84,11 +272,13 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             // Amount Input Section
             Container(
               decoration: BoxDecoration(
@@ -267,24 +457,32 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                     ),
                     elevation: 4,
                   ),
-                  onPressed: () {
-                    final selectedMethod =
-                        paymentMethods[_selectedPayment!]['name'];
-                    final amount = _amountController.text;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content:
-                            Text('Adding ₹$amount via $selectedMethod...'),
-                        backgroundColor: Colors.pinkAccent,
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                    // TODO: Integrate actual payment gateway
-                    Future.delayed(const Duration(seconds: 2), () {
-                      if (mounted) {
-                        Navigator.pop(context);
-                      }
-                    });
+                  onPressed: _isProcessing
+                      ? null
+                      : () {
+                    final amountValue = _parseAmount();
+                    if (amountValue == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Enter a valid amount'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (amountValue < 10 || amountValue > 10000) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Amount must be between ₹10 and ₹10,000'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                      return;
+                    }
+
+                    final amountInPaise = (amountValue * 100).round();
+                    _startCheckout(amountValue, amountInPaise);
                   },
                   child: const Text(
                     "Add Balance",
@@ -352,8 +550,19 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                 ],
               ),
             ),
-          ],
-        ),
+              ],
+            ),
+          ),
+          if (_isProcessing)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black38,
+                child: const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
